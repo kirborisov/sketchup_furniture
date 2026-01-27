@@ -80,10 +80,12 @@ module SketchupFurniture
           # Короб выше направляющих
           # dx: отступ для направляющей слева
           # dz: короб стоит НА направляющих, поэтому выше на их высоту
-          box_context = @context.offset(
-            dx: @slide.thickness,
-            dy: 0,
-            dz: @slide.height
+          # ВАЖНО: передаём группу ящика как родителя, чтобы короб был внутри!
+          box_context = Core::Context.new(
+            x: @context.x + @slide.thickness,
+            y: @context.y,
+            z: @context.z + @slide.height,
+            parent: @group  # <- короб создаётся ВНУТРИ группы ящика
           )
           @box.build(box_context)
           
