@@ -22,6 +22,8 @@ module SketchupFurniture
         
         return if mode == :off
         
+        puts "\n=== РАЗМЕРЫ: #{mode} ==="
+        
         entities = Sketchup.active_model.active_entities
         
         case mode
@@ -35,6 +37,8 @@ module SketchupFurniture
           add_section_dimensions(entities, component)
           add_shelf_dimensions(entities, component)
         end
+        
+        puts "=== Создано размеров: #{@dimension_entities.length} ===\n"
       end
       
       # Убрать размеры
@@ -49,35 +53,49 @@ module SketchupFurniture
       
       # Габаритные размеры
       def add_overall_dimensions(entities, component)
-        x = (component.context&.x || 0).mm
-        y = (component.context&.y || 0).mm
-        z = (component.context&.z || 0).mm
+        # Получаем позицию и размеры
+        cx = component.context&.x || 0
+        cy = component.context&.y || 0
+        cz = component.context&.z || 0
         
-        w = component.width.mm
-        h = component.height.mm
-        d = component.depth.mm
+        cw = component.width
+        ch = component.height
+        cd = component.depth
         
+        puts "  Габариты: #{cw} × #{ch} × #{cd} мм"
+        puts "  Позиция: [#{cx}, #{cy}, #{cz}]"
+        
+        # Конвертируем в SketchUp единицы
+        x = cx.mm
+        y = cy.mm
+        z = cz.mm
+        w = cw.mm
+        h = ch.mm
+        d = cd.mm
         offset = OFFSET.mm
         
-        # Ширина (по X, снизу)
+        # Ширина (по X, спереди снизу)
+        puts "  Добавляю ширину..."
         add_dimension(entities,
           [x, y - offset, z],
           [x + w, y - offset, z],
-          [0, -offset, 0]
+          [0, -offset * 0.5, 0]
         )
         
-        # Высота (по Z, слева)
+        # Высота (по Z, слева спереди)
+        puts "  Добавляю высоту..."
         add_dimension(entities,
           [x - offset, y, z],
           [x - offset, y, z + h],
-          [-offset, 0, 0]
+          [-offset * 0.5, 0, 0]
         )
         
-        # Глубина (по Y, снизу слева)
+        # Глубина (по Y, слева снизу)
+        puts "  Добавляю глубину..."
         add_dimension(entities,
-          [x - offset, y, z],
-          [x - offset, y + d, z],
-          [-offset, 0, 0]
+          [x, y, z - offset],
+          [x, y + d, z - offset],
+          [0, 0, -offset * 0.5]
         )
       end
       
@@ -169,24 +187,29 @@ module SketchupFurniture
       
       # Создать размерную линию
       def add_dimension(entities, pt1, pt2, offset_vector)
+        # Проверяем что точки разные
+        return if pt1[0] == pt2[0] && pt1[1] == pt2[1] && pt1[2] == pt2[2]
+        
         begin
-          # Точка для смещения размерной линии
-          offset_pt = Geom::Point3d.new(
-            (pt1[0] + pt2[0]) / 2.0 + offset_vector[0],
-            (pt1[1] + pt2[1]) / 2.0 + offset_vector[1],
-            (pt1[2] + pt2[2]) / 2.0 + offset_vector[2]
-          )
+          p1 = pt1.is_a?(Array) ? pt1 : pt1.to_a
+          p2 = pt2.is_a?(Array) ? pt2 : pt2.to_a
           
-          dim = entities.add_dimension_linear(
-            Geom::Point3d.new(*pt1),
-            Geom::Point3d.new(*pt2),
-            offset_pt
-          )
+          # Вектор смещения для размерной линии
+          offset_pt = [
+            (p1[0] + p2[0]) / 2.0 + offset_vector[0],
+            (p1[1] + p2[1]) / 2.0 + offset_vector[1],
+            (p1[2] + p2[2]) / 2.0 + offset_vector[2]
+          ]
           
-          @dimension_entities << dim if dim
+          dim = entities.add_dimension_linear(p1, p2, offset_pt)
+          
+          if dim
+            @dimension_entities << dim
+            puts "  + Размер: #{((p2[0]-p1[0]).abs + (p2[1]-p1[1]).abs + (p2[2]-p1[2]).abs).to_i} мм"
+          end
         rescue => e
-          # Игнорируем ошибки (могут быть если точки совпадают)
-          puts "Dimension error: #{e.message}" if $DEBUG
+          puts "Dimension error: #{e.message}"
+          puts "  pt1: #{pt1.inspect}, pt2: #{pt2.inspect}"
         end
       end
     end

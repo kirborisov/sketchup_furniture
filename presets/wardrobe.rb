@@ -75,15 +75,14 @@ module SketchupFurniture
       # mode: :off, :overview, :sections, :detailed
       def show_dimensions(mode = :overview)
         @dimensions.show(self, mode)
-        puts "Размеры: #{mode}"
-        self
+        nil  # Не выводить объект в консоль
       end
       
       # Убрать размеры
       def hide_dimensions
         @dimensions.hide
         puts "Размеры скрыты"
-        self
+        nil  # Не выводить объект в консоль
       end
       
       # Текущий режим размеров
