@@ -65,33 +65,33 @@ module SketchupFurniture
         puts "  Габариты: #{cw} × #{ch} × #{cd} мм"
         puts "  Позиция: [#{cx}, #{cy}, #{cz}] мм"
         
-        # Смещение размерной линии от объекта
-        off = OFFSET
+        # Смещение размерной линии от объекта (в дюймах для SketchUp)
+        off = OFFSET.mm
         
-        # ШИРИНА (по X) — линия спереди, ниже объекта
-        # Точки: левый-передний-нижний угол → правый-передний-нижний угол
+        # ШИРИНА (по X) — спереди снизу
+        # Измеряем от левого-переднего-нижнего до правого-переднего-нижнего
         add_dimension(entities,
-          [(cx).mm, (cy - off).mm, cz.mm],
-          [(cx + cw).mm, (cy - off).mm, cz.mm],
-          [0, (-off * 0.3).mm, 0]
+          [cx.mm, cy.mm, cz.mm],                    # левый-передний-нижний
+          [(cx + cw).mm, cy.mm, cz.mm],             # правый-передний-нижний
+          [0, -off, 0]                              # смещение вперёд (по -Y)
         )
         puts "  + Ширина: #{cw} мм"
         
-        # ВЫСОТА (по Z) — линия слева, перед объектом
-        # Точки: левый-передний-нижний → левый-передний-верхний
+        # ВЫСОТА (по Z) — слева спереди
+        # Измеряем от левого-переднего-нижнего до левого-переднего-верхнего
         add_dimension(entities,
-          [(cx - off).mm, cy.mm, cz.mm],
-          [(cx - off).mm, cy.mm, (cz + ch).mm],
-          [(-off * 0.3).mm, 0, 0]
+          [cx.mm, cy.mm, cz.mm],                    # левый-передний-нижний
+          [cx.mm, cy.mm, (cz + ch).mm],             # левый-передний-верхний
+          [-off, 0, 0]                              # смещение влево (по -X)
         )
         puts "  + Высота: #{ch} мм"
         
-        # ГЛУБИНА (по Y) — линия слева снизу
-        # Точки: левый-передний-нижний → левый-задний-нижний
+        # ГЛУБИНА (по Y) — слева снизу
+        # Измеряем от левого-переднего-нижнего до левого-заднего-нижнего
         add_dimension(entities,
-          [(cx - off).mm, cy.mm, (cz - off * 0.5).mm],
-          [(cx - off).mm, (cy + cd).mm, (cz - off * 0.5).mm],
-          [(-off * 0.3).mm, 0, 0]
+          [cx.mm, cy.mm, cz.mm],                    # левый-передний-нижний
+          [cx.mm, (cy + cd).mm, cz.mm],             # левый-задний-нижний
+          [-off, 0, -off]                           # смещение влево-вниз
         )
         puts "  + Глубина: #{cd} мм"
       end
@@ -188,17 +188,12 @@ module SketchupFurniture
         return if pt1[0] == pt2[0] && pt1[1] == pt2[1] && pt1[2] == pt2[2]
         
         begin
-          p1 = pt1.is_a?(Array) ? pt1 : pt1.to_a
-          p2 = pt2.is_a?(Array) ? pt2 : pt2.to_a
+          # add_dimension_linear принимает:
+          # - start_pt: начальная точка измерения
+          # - end_pt: конечная точка измерения  
+          # - offset: вектор смещения размерной линии от объекта
           
-          # Вектор смещения для размерной линии
-          offset_pt = [
-            (p1[0] + p2[0]) / 2.0 + offset_vector[0],
-            (p1[1] + p2[1]) / 2.0 + offset_vector[1],
-            (p1[2] + p2[2]) / 2.0 + offset_vector[2]
-          ]
-          
-          dim = entities.add_dimension_linear(p1, p2, offset_pt)
+          dim = entities.add_dimension_linear(pt1, pt2, offset_vector)
           @dimension_entities << dim if dim
           
         rescue => e
