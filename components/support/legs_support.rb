@@ -28,10 +28,53 @@ module SketchupFurniture
           @height
         end
         
-        # Ножки не рисуем (только фурнитура)
+        # Рисуем упрощённые ножки
         def has_geometry?
-          false
+          true
         end
+        
+        # Построить визуализацию ножек
+        def build(group, x:, y:, z:, width:, depth:, thickness:)
+          entities = group.respond_to?(:entities) ? group.entities : group
+          
+          leg_size = 30.mm  # размер ножки 30×30мм
+          h = @height.mm
+          inset = 50.mm     # отступ от края
+          
+          # Позиции 4 ножек
+          positions = [
+            [x + inset, y + inset],                         # передняя левая
+            [x + width - inset - leg_size, y + inset],      # передняя правая
+            [x + inset, y + depth - inset - leg_size],      # задняя левая
+            [x + width - inset - leg_size, y + depth - inset - leg_size]  # задняя правая
+          ]
+          
+          # Для широких шкафов — добавляем средние ножки
+          if @count >= 6
+            mid_x = x + width / 2 - leg_size / 2
+            positions << [mid_x, y + inset]
+            positions << [mid_x, y + depth - inset - leg_size]
+          end
+          
+          positions.each do |lx, ly|
+            build_leg(entities, lx, ly, z, leg_size, h)
+          end
+        end
+        
+        private
+        
+        def build_leg(entities, x, y, z, size, height)
+          pts = [
+            [x, y, z],
+            [x + size, y, z],
+            [x + size, y + size, z],
+            [x, y + size, z]
+          ]
+          face = entities.add_face(pts)
+          face.pushpull(height) if face && face.respond_to?(:pushpull)
+        end
+        
+        public
         
         def hardware
           leg_name = @adjustable ? "Ножка регулируемая" : "Ножка"

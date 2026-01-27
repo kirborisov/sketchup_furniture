@@ -98,18 +98,20 @@ module SketchupFurniture
         
         def build_facade(entities, ox, oy, oz)
           # Фасад накладной: ширина шкафа × высота ящика
+          # Это ВЕРТИКАЛЬНАЯ панель (плоскость XZ), выступающая вперёд
           facade_w = @width.mm
           facade_h = (@height - @facade_gap).mm
           facade_t = @facade_thickness.mm
           
+          # Вертикальная грань спереди (в плоскости XZ на y = oy - facade_t)
           pts = [
             [ox, oy - facade_t, oz],
             [ox + facade_w, oy - facade_t, oz],
-            [ox + facade_w, oy, oz],
-            [ox, oy, oz]
+            [ox + facade_w, oy - facade_t, oz + facade_h],
+            [ox, oy - facade_t, oz + facade_h]
           ]
           face = entities.add_face(pts)
-          face.pushpull(facade_h) if face
+          face.pushpull(facade_t) if face  # толщина фасада
           
           add_cut(
             name: "Фасад ящика",
