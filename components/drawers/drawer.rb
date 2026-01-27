@@ -68,6 +68,15 @@ module SketchupFurniture
           slide_offset = @slide.thickness.mm
           slide_height = @slide.height.mm
           
+          # Сохраняем ссылку на entities ДО создания дочерних групп
+          drawer_entities = @group.entities
+          
+          # Фасад (накладной, спереди) - строим ПЕРВЫМ
+          build_facade(drawer_entities, ox, oy, oz)
+          
+          # Направляющие (если включено)
+          build_slides(drawer_entities, ox, oy, oz) if @draw_slides
+          
           # Короб (смещён на толщину направляющих)
           box_context = @context.offset(
             dx: @slide.thickness,
@@ -79,19 +88,13 @@ module SketchupFurniture
           # Собираем детали раскроя от короба
           @cut_items.concat(@box.cut_items)
           
-          # Фасад (накладной, спереди)
-          build_facade(ox, oy, oz)
-          
-          # Направляющие (если включено)
-          build_slides(ox, oy, oz) if @draw_slides
-          
           # Фурнитура: направляющие
           add_hardware(**@slide.hardware_entry)
         end
         
         private
         
-        def build_facade(ox, oy, oz)
+        def build_facade(entities, ox, oy, oz)
           # Фасад накладной: ширина шкафа × высота ящика
           facade_w = @width.mm
           facade_h = (@height - @facade_gap).mm
@@ -103,7 +106,7 @@ module SketchupFurniture
             [ox + facade_w, oy, oz],
             [ox, oy, oz]
           ]
-          face = @group.entities.add_face(pts)
+          face = entities.add_face(pts)
           face.pushpull(facade_h) if face
           
           add_cut(
@@ -115,7 +118,7 @@ module SketchupFurniture
           )
         end
         
-        def build_slides(ox, oy, oz)
+        def build_slides(entities, ox, oy, oz)
           # Упрощённое представление направляющих
           slide_w = 3.mm  # визуальная ширина
           slide_h = @slide.height.mm
@@ -123,20 +126,20 @@ module SketchupFurniture
           t = @slide.thickness.mm
           
           # Левая направляющая
-          build_slide_geometry(ox, oy, oz, slide_w, slide_h, slide_l)
+          build_slide_geometry(entities, ox, oy, oz, slide_w, slide_h, slide_l)
           
           # Правая направляющая
-          build_slide_geometry(ox + @width.mm - t, oy, oz, slide_w, slide_h, slide_l)
+          build_slide_geometry(entities, ox + @width.mm - t, oy, oz, slide_w, slide_h, slide_l)
         end
         
-        def build_slide_geometry(x, y, z, w, h, l)
+        def build_slide_geometry(entities, x, y, z, w, h, l)
           pts = [
             [x, y, z],
             [x + w, y, z],
             [x + w, y + l, z],
             [x, y + l, z]
           ]
-          face = @group.entities.add_face(pts)
+          face = entities.add_face(pts)
           face.pushpull(h) if face
         end
         
