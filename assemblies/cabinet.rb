@@ -1,11 +1,11 @@
-# furniture/assemblies/cabinet.rb
+# sketchup_furniture/assemblies/cabinet.rb
 # Базовый шкаф — сборка из компонентов
 
 module SketchupFurniture
   module Assemblies
     class Cabinet < Core::Component
       attr_accessor :thickness, :back_thickness
-      attr_reader :shelves_config, :sections_config
+      attr_reader :shelves_config, :sections_config, :support
       
       def initialize(width, height, depth, name: "Шкаф", thickness: 18, back_thickness: 4)
         super(width, height, depth, name: name)
@@ -15,6 +15,7 @@ module SketchupFurniture
         @shelves_config = []
         @sections_config = []
         @has_back = true
+        @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
       end
       
       # === DSL МЕТОДЫ ===
@@ -43,16 +44,43 @@ module SketchupFurniture
         self
       end
       
+      # Цоколь — боковины до пола, дно поднято
+      def plinth(height, front_panel: false)
+        @support = Components::Support::PlinthSupport.new(height, front_panel: front_panel)
+        self
+      end
+      
+      # Ножки — боковины короче
+      def legs(height, count: nil, adjustable: true)
+        leg_count = count || Components::Support::LegsSupport.calculate_count(@width)
+        @support = Components::Support::LegsSupport.new(height, count: leg_count, adjustable: adjustable)
+        self
+      end
+      
+      # На боковинах (стандарт, по умолчанию)
+      def on_sides
+        @support = Components::Support::SidesSupport.new
+        self
+      end
+      
       # === ПОСТРОЕНИЕ ===
       
       def build_geometry
         t = @thickness.mm
         bt = @back_thickness.mm
         
+        # Смещения от опоры
+        support_z = @support.side_start_z.mm      # откуда начинаются боковины
+        bottom_offset = @support.bottom_z.mm      # где дно
+        side_reduction = @support.side_height_reduction  # насколько короче боковины
+        
+        # Высота боковин (может быть уменьшена для ножек)
+        side_height = @height - side_reduction
+        
         # Внутренние размеры (в мм)
         inner_w_mm = @width - 2 * @thickness
         inner_d_mm = @depth - @back_thickness
-        inner_h_mm = @height - 2 * @thickness
+        inner_h_mm = side_height - 2 * @thickness
         
         # Внутренние размеры (конвертированы для SketchUp)
         inner_w = inner_w_mm.mm
@@ -65,40 +93,53 @@ module SketchupFurniture
         oz = (@context&.z || 0).mm
         
         # Левая боковина
-        build_side(:left, ox, oy, oz, inner_d)
+        build_side(:left, ox, oy, oz + support_z, inner_d, side_height)
         
         # Правая боковина
-        build_side(:right, ox + @width.mm - t, oy, oz, inner_d)
+        build_side(:right, ox + @width.mm - t, oy, oz + support_z, inner_d, side_height)
         
-        # Дно
-        build_horizontal(:bottom, ox + t, oy, oz, inner_w, inner_d)
+        # Дно (с учётом смещения от опоры)
+        build_horizontal(:bottom, ox + t, oy, oz + bottom_offset, inner_w, inner_d)
         
         # Верх
-        build_horizontal(:top, ox + t, oy, oz + @height.mm - t, inner_w, inner_d)
+        build_horizontal(:top, ox + t, oy, oz + support_z + side_height.mm - t, inner_w, inner_d)
         
         # Задняя стенка
-        build_back(ox, oy + inner_d, oz) if @has_back
+        if @has_back
+          back_height = side_height
+          build_back(ox, oy + inner_d, oz + support_z, back_height)
+        end
         
         # Секции (перегородки)
-        build_sections(ox, oy, oz, inner_d, inner_h) if @sections_config.any?
+        build_sections(ox, oy, oz + bottom_offset + t, inner_d, inner_h) if @sections_config.any?
         
-        # Полки
-        build_shelves(ox, oy, oz, inner_w, inner_d)
+        # Полки (относительно дна)
+        build_shelves(ox, oy, oz + bottom_offset, inner_w, inner_d)
+        
+        # Геометрия опоры (если есть)
+        if @support.has_geometry?
+          @support.build(@group, x: ox, y: oy, z: oz, width: @width.mm, depth: @depth.mm, thickness: t)
+        end
+        
+        # Фурнитура от опоры
+        @support.hardware.each do |hw|
+          add_hardware(**hw)
+        end
       end
       
       private
       
-      def build_side(position, x, y, z, depth)
+      def build_side(position, x, y, z, depth, height)
         Primitives::Panel.side(
           @group, x: x, y: y, z: z,
-          height: @height.mm,
+          height: height.mm,
           depth: depth,
           thickness: @thickness.mm
         )
         
         add_cut(
           name: position == :left ? "Боковина левая" : "Боковина правая",
-          length: @height,
+          length: height,
           width: @depth - @back_thickness,
           thickness: @thickness,
           material: "ЛДСП"
@@ -122,17 +163,17 @@ module SketchupFurniture
         )
       end
       
-      def build_back(x, y, z)
+      def build_back(x, y, z, height)
         Primitives::Panel.back(
           @group, x: x, y: y, z: z,
           width: @width.mm,
-          height: @height.mm,
+          height: height.mm,
           thickness: @back_thickness.mm
         )
         
         add_cut(
           name: "Задняя стенка",
-          length: @height,
+          length: height,
           width: @width,
           thickness: @back_thickness,
           material: "ДВП"
@@ -141,8 +182,9 @@ module SketchupFurniture
       
       def build_sections(ox, oy, oz, inner_d, inner_h)
         t = @thickness.mm
+        side_reduction = @support.side_height_reduction
+        panel_height = @height - side_reduction - 2 * @thickness
         panel_depth = @depth - @back_thickness
-        panel_height = @height - 2 * @thickness
         
         # Вычисляем реальные ширины секций
         section_widths = resolve_sections
@@ -152,7 +194,7 @@ module SketchupFurniture
           x_pos += sec_w.mm
           
           Primitives::Panel.side(
-            @group, x: x_pos, y: oy, z: oz + t,
+            @group, x: x_pos, y: oy, z: oz,
             height: inner_h,
             depth: inner_d,
             thickness: t
