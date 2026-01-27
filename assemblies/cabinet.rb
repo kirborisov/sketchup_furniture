@@ -7,6 +7,9 @@ module SketchupFurniture
       attr_accessor :thickness, :back_thickness
       attr_reader :shelves_config, :sections_config, :support
       
+      # Доступные части для пропуска
+      PARTS = [:bottom, :top, :back, :left_side, :right_side].freeze
+      
       def initialize(width, height, depth, name: "Шкаф", thickness: 18, back_thickness: 4)
         super(width, height, depth, name: name)
         @thickness = thickness
@@ -14,11 +17,29 @@ module SketchupFurniture
         
         @shelves_config = []
         @sections_config = []
-        @has_back = true
+        @skip_parts = []  # Части которые не строим
         @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
       end
       
       # === DSL МЕТОДЫ ===
+      
+      # Пропустить части шкафа
+      # skip :bottom, :back, :left_side
+      def skip(*parts)
+        parts.flatten.each do |part|
+          unless PARTS.include?(part)
+            puts "Предупреждение: неизвестная часть '#{part}'. Доступные: #{PARTS.join(', ')}"
+            next
+          end
+          @skip_parts << part unless @skip_parts.include?(part)
+        end
+        self
+      end
+      
+      # Проверить нужно ли строить часть
+      def build_part?(part)
+        !@skip_parts.include?(part)
+      end
       
       # Добавить полку
       def shelf(z_position, adjustable: true)
@@ -35,12 +56,6 @@ module SketchupFurniture
       # Задать секции (вертикальные перегородки)
       def sections(*widths)
         @sections_config = widths.flatten
-        self
-      end
-      
-      # Без задней стенки
-      def no_back
-        @has_back = false
         self
       end
       
@@ -93,19 +108,27 @@ module SketchupFurniture
         oz = (@context&.z || 0).mm
         
         # Левая боковина
-        build_side(:left, ox, oy, oz + support_z, inner_d, side_height)
+        if build_part?(:left_side)
+          build_side(:left, ox, oy, oz + support_z, inner_d, side_height)
+        end
         
         # Правая боковина
-        build_side(:right, ox + @width.mm - t, oy, oz + support_z, inner_d, side_height)
+        if build_part?(:right_side)
+          build_side(:right, ox + @width.mm - t, oy, oz + support_z, inner_d, side_height)
+        end
         
         # Дно (с учётом смещения от опоры)
-        build_horizontal(:bottom, ox + t, oy, oz + bottom_offset, inner_w, inner_d)
+        if build_part?(:bottom)
+          build_horizontal(:bottom, ox + t, oy, oz + bottom_offset, inner_w, inner_d)
+        end
         
         # Верх
-        build_horizontal(:top, ox + t, oy, oz + support_z + side_height.mm - t, inner_w, inner_d)
+        if build_part?(:top)
+          build_horizontal(:top, ox + t, oy, oz + support_z + side_height.mm - t, inner_w, inner_d)
+        end
         
         # Задняя стенка
-        if @has_back
+        if build_part?(:back)
           back_height = side_height
           build_back(ox, oy + inner_d, oz + support_z, back_height)
         end
