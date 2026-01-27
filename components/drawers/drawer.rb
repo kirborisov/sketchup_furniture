@@ -163,6 +163,8 @@ module SketchupFurniture
           end
         end
         
+        public
+        
         # === АНИМАЦИЯ ===
         
         # Открыть ящик

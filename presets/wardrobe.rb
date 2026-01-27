@@ -90,6 +90,57 @@ module SketchupFurniture
         @dimensions.mode
       end
       
+      # === ЯЩИКИ ===
+      
+      # Получить все ящики
+      def all_drawers
+        drawers = []
+        @columns.each do |col|
+          col.modules.each do |mod|
+            if mod.respond_to?(:drawer_objects)
+              drawers.concat(mod.drawer_objects)
+            end
+          end
+        end
+        drawers
+      end
+      
+      # Открыть конкретный ящик
+      # wardrobe.open_drawer(1, 0, 0)  # колонна 1, модуль 0, ящик 0
+      def open_drawer(column_idx, module_idx = 0, drawer_idx = 0, amount: nil)
+        drawer = get_drawer(column_idx, module_idx, drawer_idx)
+        drawer&.open(amount)
+      end
+      
+      # Закрыть конкретный ящик
+      def close_drawer(column_idx, module_idx = 0, drawer_idx = 0)
+        drawer = get_drawer(column_idx, module_idx, drawer_idx)
+        drawer&.close
+      end
+      
+      # Открыть все ящики
+      def open_all_drawers(amount: nil)
+        all_drawers.each { |d| d.open(amount) }
+        puts "Открыто ящиков: #{all_drawers.length}"
+      end
+      
+      # Закрыть все ящики
+      def close_all_drawers
+        all_drawers.each(&:close)
+        puts "Закрыто ящиков: #{all_drawers.length}"
+      end
+      
+      # Получить ящик по индексам
+      def get_drawer(column_idx, module_idx, drawer_idx)
+        col = @columns[column_idx]
+        return nil unless col
+        
+        mod = col.modules[module_idx]
+        return nil unless mod&.respond_to?(:drawer_objects)
+        
+        mod.drawer_objects[drawer_idx]
+      end
+      
       private
       
       def collect_outputs
