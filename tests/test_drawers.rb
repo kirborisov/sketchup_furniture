@@ -1,0 +1,177 @@
+# sketchup_furniture/tests/test_drawers.rb
+# Тесты для ящиков
+
+# Мок SketchUp API
+module Sketchup
+  def self.active_model; Model.new; end
+  class Model
+    def start_operation(*args); end
+    def commit_operation; end
+    def active_entities; Entities.new; end
+  end
+  class Entities
+    def add_group; Group.new; end
+    def add_face(*args); Face.new; end
+    def add_dimension_linear(*args); nil; end
+  end
+  class Group
+    attr_accessor :name
+    def entities; Sketchup::Entities.new; end
+    def transform!(*args); end
+  end
+  class Face
+    def normal; Vector.new; end
+    def pushpull(*args); end
+  end
+  class Vector; def z; 1; end; end
+end
+
+module Geom
+  class Vector3d
+    def initialize(*args); end
+  end
+  class Transformation
+    def self.translation(v); new; end
+    def initialize; end
+  end
+end
+
+# Загружаем библиотеку
+Dir.chdir(File.dirname(__FILE__) + '/..')
+load 'sketchup_furniture.rb'
+
+# Простой тест-фреймворк
+$tests_passed = 0
+$tests_failed = 0
+
+def assert_equal(expected, actual, message = "")
+  if expected == actual
+    $tests_passed += 1
+    puts "  ✓ #{message}"
+  else
+    $tests_failed += 1
+    puts "  ✗ #{message}"
+    puts "    Ожидалось: #{expected}"
+    puts "    Получено: #{actual}"
+  end
+end
+
+def assert(condition, message = "")
+  if condition
+    $tests_passed += 1
+    puts "  ✓ #{message}"
+  else
+    $tests_failed += 1
+    puts "  ✗ #{message}"
+  end
+end
+
+def test(name)
+  puts "\n#{name}"
+  yield
+end
+
+# === ТЕСТЫ НАПРАВЛЯЮЩИХ ===
+
+test "BallBearingSlide — параметры по умолчанию" do
+  slide = SketchupFurniture::Components::Drawers::Slides::BallBearing.new(length: 400)
+  
+  assert_equal 400, slide.length, "длина"
+  assert_equal 35, slide.height, "высота профиля"
+  assert_equal 13, slide.thickness, "толщина на сторону"
+  assert_equal 26, slide.width_reduction, "уменьшение ширины ящика"
+  assert_equal :full, slide.extension, "полное выдвижение"
+  assert_equal 25, slide.load_capacity, "нагрузка"
+end
+
+test "BallBearingSlide — подбор длины для глубины шкафа" do
+  # Глубина 400мм → длина 350мм (400 - 50 = 350)
+  slide = SketchupFurniture::Components::Drawers::Slides::BallBearing.for_depth(400)
+  assert_equal 350, slide.length, "длина для глубины 400мм"
+  
+  # Глубина 500мм → длина 450мм
+  slide2 = SketchupFurniture::Components::Drawers::Slides::BallBearing.for_depth(500)
+  assert_equal 450, slide2.length, "длина для глубины 500мм"
+end
+
+test "BallBearingSlide — мягкое закрывание" do
+  slide = SketchupFurniture::Components::Drawers::Slides::BallBearing.new(length: 400, soft_close: true)
+  assert slide.soft_close?, "soft_close включён"
+  assert slide.hardware_name.include?("плавное"), "название содержит 'плавное'"
+end
+
+# === ТЕСТЫ КОРОБА ===
+
+test "DrawerBox — размеры" do
+  box = SketchupFurniture::Components::Drawers::DrawerBox.new(738, 100, 350)
+  
+  assert_equal 738, box.width, "ширина"
+  assert_equal 100, box.height, "высота"
+  assert_equal 350, box.depth, "глубина"
+  assert_equal 10, box.box_thickness, "толщина стенок (фанера)"
+  assert_equal 4, box.bottom_thickness, "толщина дна (ДВП)"
+  
+  # Внутренние размеры
+  assert_equal 718, box.inner_width, "внутренняя ширина (738 - 2×10)"
+  assert_equal 330, box.inner_depth, "внутренняя глубина (350 - 2×10)"
+end
+
+# === ТЕСТЫ ЯЩИКА ===
+
+test "Drawer — расчёт размеров короба" do
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    150,                    # высота ящика
+    cabinet_width: 764,     # внутренняя ширина шкафа
+    cabinet_depth: 400      # глубина шкафа
+  )
+  
+  # Ширина короба = внутр.ширина - 2×толщина_направляющей
+  # 764 - 26 = 738
+  assert_equal 738, drawer.box.width, "ширина короба"
+  
+  # Глубина короба = длина направляющей (350мм для глубины 400)
+  assert_equal 350, drawer.box.depth, "глубина короба"
+  
+  # Высота короба = высота_ящика - высота_направляющей - зазор
+  # 150 - 35 - 3 = 112
+  assert_equal 112, drawer.box_height, "высота короба"
+end
+
+# === ТЕСТЫ CABINET С ЯЩИКАМИ ===
+
+test "Cabinet — добавление ящиков" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer(150)
+  cab.drawer(150)
+  cab.drawer(100)
+  
+  assert_equal 3, cab.instance_variable_get(:@drawers_config).length, "количество ящиков"
+end
+
+test "Cabinet — drawers (несколько одинаковых)" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawers(4, height: 100)
+  
+  assert_equal 4, cab.instance_variable_get(:@drawers_config).length, "количество ящиков"
+  cab.instance_variable_get(:@drawers_config).each do |cfg|
+    assert_equal 100, cfg[:height], "высота каждого ящика"
+  end
+end
+
+test "Cabinet — drawer с параметрами" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400)
+  cab.drawer(150, slide: :ball_bearing, soft_close: true, draw_slides: true)
+  
+  cfg = cab.instance_variable_get(:@drawers_config).first
+  assert_equal :ball_bearing, cfg[:slide], "тип направляющих"
+  assert cfg[:soft_close], "плавное закрывание"
+  assert cfg[:draw_slides], "рисовать направляющие"
+end
+
+# === ИТОГИ ===
+
+puts "\n" + "=" * 50
+puts "РЕЗУЛЬТАТЫ: #{$tests_passed} пройдено, #{$tests_failed} провалено"
+puts "=" * 50
+
+exit($tests_failed > 0 ? 1 : 0)

@@ -5,7 +5,7 @@ module SketchupFurniture
   module Assemblies
     class Cabinet < Core::Component
       attr_accessor :thickness, :back_thickness
-      attr_reader :shelves_config, :sections_config, :support
+      attr_reader :shelves_config, :sections_config, :support, :drawer_objects
       
       # Доступные части для пропуска
       PARTS = [:bottom, :top, :back, :left_side, :right_side].freeze
@@ -17,6 +17,8 @@ module SketchupFurniture
         
         @shelves_config = []
         @sections_config = []
+        @drawers_config = []  # Конфигурация ящиков
+        @drawer_objects = []  # Созданные ящики (для анимации)
         @skip_parts = []  # Части которые не строим
         @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
       end
@@ -56,6 +58,29 @@ module SketchupFurniture
       # Задать секции (вертикальные перегородки)
       def sections(*widths)
         @sections_config = widths.flatten
+        self
+      end
+      
+      # === ЯЩИКИ ===
+      
+      # Добавить один ящик
+      # height: высота ящика (мм)
+      # slide: тип направляющих (:ball_bearing, :roller, :undermount)
+      # soft_close: плавное закрывание
+      # draw_slides: рисовать направляющие
+      def drawer(height, slide: :ball_bearing, soft_close: false, draw_slides: false)
+        @drawers_config << {
+          height: height,
+          slide: slide,
+          soft_close: soft_close,
+          draw_slides: draw_slides
+        }
+        self
+      end
+      
+      # Добавить несколько одинаковых ящиков
+      def drawers(count, height:, slide: :ball_bearing, soft_close: false, draw_slides: false)
+        count.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides) }
         self
       end
       
@@ -143,6 +168,9 @@ module SketchupFurniture
         
         # Полки (относительно дна)
         build_shelves(ox, oy, oz + bottom_offset, inner_w, inner_d)
+        
+        # Ящики
+        build_drawers(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawers_config.any?
         
         # Геометрия опоры (если есть)
         if @support.has_geometry?
@@ -283,6 +311,49 @@ module SketchupFurniture
         )
         
         add_hardware(type: :shelf_support, quantity: 4)
+      end
+      
+      # Построить ящики
+      def build_drawers(ox, oy, oz, inner_w_mm, inner_d_mm)
+        z_pos = oz
+        
+        @drawers_config.each_with_index do |cfg, i|
+          drawer = Components::Drawers::Drawer.new(
+            cfg[:height],
+            cabinet_width: inner_w_mm,
+            cabinet_depth: @depth,
+            name: "#{@name} ящик #{i + 1}",
+            slide_type: cfg[:slide],
+            soft_close: cfg[:soft_close],
+            draw_slides: cfg[:draw_slides]
+          )
+          
+          drawer_context = @context.offset(
+            dx: @thickness,
+            dy: 0,
+            dz: (@support.bottom_z + @thickness) + drawer_z_offset(i)
+          )
+          
+          drawer.build(drawer_context)
+          
+          # Собираем детали и фурнитуру
+          @cut_items.concat(drawer.all_cut_items)
+          @hardware_items.concat(drawer.all_hardware_items)
+          
+          # Сохраняем для анимации
+          @drawer_objects << drawer
+          
+          z_pos += cfg[:height].mm
+        end
+      end
+      
+      # Смещение ящика по Z (от дна шкафа)
+      def drawer_z_offset(index)
+        offset = 0
+        @drawers_config[0...index].each do |cfg|
+          offset += cfg[:height]
+        end
+        offset
       end
       
       # Преобразовать проценты в реальные ширины
