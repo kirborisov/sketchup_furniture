@@ -53,7 +53,7 @@ module SketchupFurniture
       
       # Габаритные размеры
       def add_overall_dimensions(entities, component)
-        # Получаем позицию и размеры
+        # Получаем позицию и размеры в мм
         cx = component.context&.x || 0
         cy = component.context&.y || 0
         cz = component.context&.z || 0
@@ -63,40 +63,37 @@ module SketchupFurniture
         cd = component.depth
         
         puts "  Габариты: #{cw} × #{ch} × #{cd} мм"
-        puts "  Позиция: [#{cx}, #{cy}, #{cz}]"
+        puts "  Позиция: [#{cx}, #{cy}, #{cz}] мм"
         
-        # Конвертируем в SketchUp единицы
-        x = cx.mm
-        y = cy.mm
-        z = cz.mm
-        w = cw.mm
-        h = ch.mm
-        d = cd.mm
-        offset = OFFSET.mm
+        # Смещение размерной линии от объекта
+        off = OFFSET
         
-        # Ширина (по X, спереди снизу)
-        puts "  Добавляю ширину..."
+        # ШИРИНА (по X) — линия спереди, ниже объекта
+        # Точки: левый-передний-нижний угол → правый-передний-нижний угол
         add_dimension(entities,
-          [x, y - offset, z],
-          [x + w, y - offset, z],
-          [0, -offset * 0.5, 0]
+          [(cx).mm, (cy - off).mm, cz.mm],
+          [(cx + cw).mm, (cy - off).mm, cz.mm],
+          [0, (-off * 0.3).mm, 0]
         )
+        puts "  + Ширина: #{cw} мм"
         
-        # Высота (по Z, слева спереди)
-        puts "  Добавляю высоту..."
+        # ВЫСОТА (по Z) — линия слева, перед объектом
+        # Точки: левый-передний-нижний → левый-передний-верхний
         add_dimension(entities,
-          [x - offset, y, z],
-          [x - offset, y, z + h],
-          [-offset * 0.5, 0, 0]
+          [(cx - off).mm, cy.mm, cz.mm],
+          [(cx - off).mm, cy.mm, (cz + ch).mm],
+          [(-off * 0.3).mm, 0, 0]
         )
+        puts "  + Высота: #{ch} мм"
         
-        # Глубина (по Y, слева снизу)
-        puts "  Добавляю глубину..."
+        # ГЛУБИНА (по Y) — линия слева снизу
+        # Точки: левый-передний-нижний → левый-задний-нижний
         add_dimension(entities,
-          [x, y, z - offset],
-          [x, y + d, z - offset],
-          [0, 0, -offset * 0.5]
+          [(cx - off).mm, cy.mm, (cz - off * 0.5).mm],
+          [(cx - off).mm, (cy + cd).mm, (cz - off * 0.5).mm],
+          [(-off * 0.3).mm, 0, 0]
         )
+        puts "  + Глубина: #{cd} мм"
       end
       
       # Размеры секций/колонн
@@ -202,14 +199,10 @@ module SketchupFurniture
           ]
           
           dim = entities.add_dimension_linear(p1, p2, offset_pt)
+          @dimension_entities << dim if dim
           
-          if dim
-            @dimension_entities << dim
-            puts "  + Размер: #{((p2[0]-p1[0]).abs + (p2[1]-p1[1]).abs + (p2[2]-p1[2]).abs).to_i} мм"
-          end
         rescue => e
-          puts "Dimension error: #{e.message}"
-          puts "  pt1: #{pt1.inspect}, pt2: #{pt2.inspect}"
+          puts "  Ошибка размера: #{e.message}"
         end
       end
     end
