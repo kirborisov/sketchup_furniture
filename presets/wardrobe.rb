@@ -12,6 +12,7 @@ module SketchupFurniture
         @columns = []
         @cut_list = Output::CutList.new
         @hardware_list = Output::HardwareList.new
+        @dimensions = Utils::Dimensions.new
         
         instance_eval(&block) if block_given?
       end
@@ -66,6 +67,28 @@ module SketchupFurniture
         
         @cut_list.summary
         @hardware_list.summary
+      end
+      
+      # === РАЗМЕРЫ ===
+      
+      # Показать размеры
+      # mode: :off, :overview, :sections, :detailed
+      def show_dimensions(mode = :overview)
+        @dimensions.show(self, mode)
+        puts "Размеры: #{mode}"
+        self
+      end
+      
+      # Убрать размеры
+      def hide_dimensions
+        @dimensions.hide
+        puts "Размеры скрыты"
+        self
+      end
+      
+      # Текущий режим размеров
+      def dimensions_mode
+        @dimensions.mode
       end
       
       private

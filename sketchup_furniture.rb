@@ -68,7 +68,10 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'containers', 'column.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'output', 'cut_list.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'output', 'hardware_list.rb')
 
-# 9. Пресеты
+# 9. Утилиты
+load File.join(SKETCHUP_FURNITURE_PATH, 'utils', 'dimensions.rb')
+
+# 10. Пресеты
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'wardrobe.rb')
 
 
@@ -105,6 +108,9 @@ puts <<-HELP
 ║    wardrobe.print_cut_list      - раскрой                      ║
 ║    wardrobe.print_hardware_list - фурнитура                    ║
 ║    wardrobe.summary             - сводка                       ║
+║    wardrobe.show_dimensions     - показать размеры             ║
+║      :overview / :sections / :detailed                         ║
+║    wardrobe.hide_dimensions     - скрыть размеры               ║
 ╚════════════════════════════════════════════════════════════════╝
 
 HELP
