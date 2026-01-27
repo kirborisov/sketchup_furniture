@@ -70,7 +70,14 @@ module SketchupFurniture
             [x, y + @depth.mm, z]
           ]
           face = @group.entities.add_face(pts)
-          face.pushpull(@height.mm) if face
+          return unless face
+          
+          # Горизонтальная грань — проверяем направление нормали
+          if face.normal.z < 0
+            face.pushpull(-@height.mm)
+          else
+            face.pushpull(@height.mm)
+          end
           
           add_cut(
             name: position == :left ? "Ящик боковина лев" : "Ящик боковина прав",
@@ -93,7 +100,14 @@ module SketchupFurniture
             [x, y + t, z]
           ]
           face = @group.entities.add_face(pts)
-          face.pushpull(@height.mm) if face
+          return unless face
+          
+          # Горизонтальная грань — проверяем направление нормали
+          if face.normal.z < 0
+            face.pushpull(-@height.mm)
+          else
+            face.pushpull(@height.mm)
+          end
           
           add_cut(
             name: position == :front ? "Ящик передняя" : "Ящик задняя",
@@ -117,7 +131,14 @@ module SketchupFurniture
             [x, y + inner_d, z]
           ]
           face = @group.entities.add_face(pts)
-          face.pushpull(bt) if face
+          return unless face
+          
+          # Горизонтальная грань — проверяем направление нормали
+          if face.normal.z < 0
+            face.pushpull(-bt)
+          else
+            face.pushpull(bt)
+          end
           
           add_cut(
             name: "Ящик дно",

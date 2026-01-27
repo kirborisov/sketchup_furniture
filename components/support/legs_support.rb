@@ -71,7 +71,15 @@ module SketchupFurniture
             [x, y + size, z]
           ]
           face = entities.add_face(pts)
-          face.pushpull(height) if face && face.respond_to?(:pushpull)
+          return unless face && face.respond_to?(:pushpull)
+          
+          # Горизонтальная грань — проверяем направление нормали
+          # Если нормаль вниз (-Z), инвертируем направление pushpull
+          if face.normal.z < 0
+            face.pushpull(-height)
+          else
+            face.pushpull(height)
+          end
         end
         
         public

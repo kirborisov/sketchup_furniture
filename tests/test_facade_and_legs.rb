@@ -63,6 +63,14 @@ module Sketchup
     def initialize(orientation = :unknown)
       @orientation = orientation
     end
+    def y
+      case @orientation
+      when :horizontal then 0
+      when :vertical_xz then 1  # фронтальная грань — нормаль по Y
+      when :vertical_yz then 0
+      else 0
+      end
+    end
     def z
       case @orientation
       when :horizontal then 1
@@ -137,9 +145,10 @@ test "Фасад ящика — вертикальная панель (XZ пло
   # Фасад должен быть выдавлен на толщину (16мм = ~0.63 дюйма)
   facade = facade_faces.first
   if facade && facade.extruded
-    # Толщина фасада 16мм ≈ 0.63 дюйма
+    # Толщина фасада 16мм ≈ 0.63 дюйма (знак зависит от направления нормали)
     expected_thickness = 16.mm
-    assert_equal expected_thickness, facade.extruded, "толщина фасада = 16мм"
+    actual_thickness = facade.extruded.abs
+    assert_equal expected_thickness, actual_thickness, "толщина фасада = 16мм"
   end
 end
 

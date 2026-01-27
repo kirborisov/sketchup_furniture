@@ -103,15 +103,24 @@ module SketchupFurniture
           facade_h = (@height - @facade_gap).mm
           facade_t = @facade_thickness.mm
           
-          # Вертикальная грань спереди (в плоскости XZ на y = oy - facade_t)
+          # Вертикальная грань на передней кромке шкафа (y = oy)
+          # Фасад выступает ВПЕРЁД на толщину фасада
           pts = [
-            [ox, oy - facade_t, oz],
-            [ox + facade_w, oy - facade_t, oz],
-            [ox + facade_w, oy - facade_t, oz + facade_h],
-            [ox, oy - facade_t, oz + facade_h]
+            [ox, oy, oz],
+            [ox + facade_w, oy, oz],
+            [ox + facade_w, oy, oz + facade_h],
+            [ox, oy, oz + facade_h]
           ]
           face = entities.add_face(pts)
-          face.pushpull(facade_t) if face  # толщина фасада
+          return unless face
+          
+          # Вертикальная грань XZ — нормаль +Y или -Y
+          # Нужно чтобы фасад выступал вперёд (в сторону -Y)
+          if face.normal.y > 0
+            face.pushpull(-facade_t)  # вперёд
+          else
+            face.pushpull(facade_t)   # вперёд
+          end
           
           add_cut(
             name: "Фасад ящика",
@@ -144,7 +153,14 @@ module SketchupFurniture
             [x, y + l, z]
           ]
           face = entities.add_face(pts)
-          face.pushpull(h) if face
+          return unless face
+          
+          # Горизонтальная грань — проверяем направление нормали
+          if face.normal.z < 0
+            face.pushpull(-h)
+          else
+            face.pushpull(h)
+          end
         end
         
         # === АНИМАЦИЯ ===
