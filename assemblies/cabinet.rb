@@ -49,10 +49,15 @@ module SketchupFurniture
         t = @thickness.mm
         bt = @back_thickness.mm
         
-        # Внутренние размеры
-        inner_w = @width - 2 * @thickness
-        inner_d = @depth - @back_thickness
-        inner_h = @height - 2 * @thickness
+        # Внутренние размеры (в мм)
+        inner_w_mm = @width - 2 * @thickness
+        inner_d_mm = @depth - @back_thickness
+        inner_h_mm = @height - 2 * @thickness
+        
+        # Внутренние размеры (конвертированы для SketchUp)
+        inner_w = inner_w_mm.mm
+        inner_d = inner_d_mm.mm
+        inner_h = inner_h_mm.mm
         
         # Позиция
         ox = (@context&.x || 0).mm
