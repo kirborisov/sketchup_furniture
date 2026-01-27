@@ -315,13 +315,19 @@ module SketchupFurniture
       
       # Построить ящики
       def build_drawers(ox, oy, oz, inner_w_mm, inner_d_mm)
-        z_pos = oz
+        # Если есть дно, ящики начинаются выше него
+        # Если дна нет (skip :bottom), ящики начинаются от support.bottom_z
+        start_z = if build_part?(:bottom)
+          @support.bottom_z + @thickness
+        else
+          @support.bottom_z
+        end
         
         @drawers_config.each_with_index do |cfg, i|
           drawer = Components::Drawers::Drawer.new(
             cfg[:height],
             cabinet_width: inner_w_mm,
-            cabinet_depth: @depth,
+            cabinet_depth: @depth - @back_thickness,
             name: "#{@name} ящик #{i + 1}",
             slide_type: cfg[:slide],
             soft_close: cfg[:soft_close],
@@ -331,7 +337,7 @@ module SketchupFurniture
           drawer_context = @context.offset(
             dx: @thickness,
             dy: 0,
-            dz: (@support.bottom_z + @thickness) + drawer_z_offset(i)
+            dz: start_z + drawer_z_offset(i)
           )
           
           drawer.build(drawer_context)
@@ -342,8 +348,6 @@ module SketchupFurniture
           
           # Сохраняем для анимации
           @drawer_objects << drawer
-          
-          z_pos += cfg[:height].mm
         end
       end
       

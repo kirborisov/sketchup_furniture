@@ -77,11 +77,13 @@ module SketchupFurniture
           # Направляющие (если включено)
           build_slides(drawer_entities, ox, oy, oz) if @draw_slides
           
-          # Короб (смещён на толщину направляющих)
+          # Короб выше направляющих
+          # dx: отступ для направляющей слева
+          # dz: короб стоит НА направляющих, поэтому выше на их высоту
           box_context = @context.offset(
             dx: @slide.thickness,
             dy: 0,
-            dz: slide_height
+            dz: @slide.height
           )
           @box.build(box_context)
           

@@ -30,8 +30,9 @@ wardrobe = Wardrobe.new "Прихожая", depth: 400 do
   # ═══════════ ЦЕНТРАЛЬНАЯ КОЛОННА ═══════════
   column 700 do
     
-    # Низ — ящики
+    # Низ — ящики (без секций, без дна - ящики занимают всё пространство)
     base 450, name: "Ящики" do
+      skip :bottom        # дно не нужно - ящики на направляющих
       drawers 3, height: 140, slide: :ball_bearing
     end
     
