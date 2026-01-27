@@ -95,7 +95,12 @@ module SketchupFurniture
         # Внутренние размеры (в мм)
         inner_w_mm = @width - 2 * @thickness
         inner_d_mm = @depth - @back_thickness
-        inner_h_mm = side_height - 2 * @thickness
+        
+        # Внутренняя высота: от верха дна до низа крышки
+        # Учитывает цоколь/ножки правильно
+        top_of_bottom = @support.bottom_z + @thickness
+        bottom_of_top = @support.side_start_z + side_height - @thickness
+        inner_h_mm = bottom_of_top - top_of_bottom
         
         # Внутренние размеры (конвертированы для SketchUp)
         inner_w = inner_w_mm.mm
@@ -205,8 +210,12 @@ module SketchupFurniture
       
       def build_sections(ox, oy, oz, inner_d, inner_h)
         t = @thickness.mm
-        side_reduction = @support.side_height_reduction
-        panel_height = @height - side_reduction - 2 * @thickness
+        
+        # Высота перегородки = внутренняя высота (от дна до верха)
+        side_height = @height - @support.side_height_reduction
+        top_of_bottom = @support.bottom_z + @thickness
+        bottom_of_top = @support.side_start_z + side_height - @thickness
+        panel_height = bottom_of_top - top_of_bottom
         panel_depth = @depth - @back_thickness
         
         # Вычисляем реальные ширины секций
