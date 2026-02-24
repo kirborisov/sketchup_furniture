@@ -20,6 +20,7 @@ module SketchupFurniture
         @drawers_config = []  # Конфигурация ящиков
         @drawer_objects = []  # Созданные ящики (для анимации)
         @skip_parts = []  # Части которые не строим
+        @stretchers_config = nil  # Царги (вместо верхней панели)
         @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
       end
       
@@ -97,6 +98,16 @@ module SketchupFurniture
         self
       end
       
+      # Царги вместо сплошного верха
+      # mode: :standard — горизонтально (передняя + задняя)
+      #        :sink    — на ребро (передняя + задняя)
+      # width: ширина царги (мм)
+      def stretchers(mode = :standard, width: 80)
+        @stretchers_config = { mode: mode, width: width }
+        skip(:top)
+        self
+      end
+      
       # На боковинах (стандарт, по умолчанию)
       def on_sides
         @support = Components::Support::SidesSupport.new
@@ -156,6 +167,9 @@ module SketchupFurniture
         if build_part?(:top)
           build_horizontal(:top, ox + t, oy, oz + support_z + side_height.mm - t, inner_w, inner_d)
         end
+        
+        # Царги (вместо верхней панели)
+        build_stretchers(ox + t, oy, oz + support_z, inner_w, inner_d, side_height) if @stretchers_config
         
         # Задняя стенка
         if build_part?(:back)
@@ -311,6 +325,60 @@ module SketchupFurniture
         )
         
         add_hardware(type: :shelf_support, quantity: 4)
+      end
+      
+      # Построить царги
+      def build_stretchers(x, y, z, inner_w, inner_d, side_height)
+        t = @thickness.mm
+        sw = @stretchers_config[:width]   # ширина царги (мм)
+        inner_w_mm = @width - 2 * @thickness
+        
+        # Верх боковин
+        top_z = z + side_height.mm
+        
+        case @stretchers_config[:mode]
+        when :standard
+          # Горизонтальные царги (лежат плашмя)
+          # Передняя
+          Primitives::Panel.horizontal(
+            @group, x: x, y: y, z: top_z - t,
+            width: inner_w, depth: sw.mm, thickness: t
+          )
+          # Задняя
+          Primitives::Panel.horizontal(
+            @group, x: x, y: y + inner_d - sw.mm, z: top_z - t,
+            width: inner_w, depth: sw.mm, thickness: t
+          )
+          
+        when :sink
+          # Царги на ребро (стоят вертикально)
+          # Передняя
+          Primitives::Panel.back(
+            @group, x: x, y: y, z: top_z - sw.mm,
+            width: inner_w, height: sw.mm, thickness: t
+          )
+          # Задняя
+          Primitives::Panel.back(
+            @group, x: x, y: y + inner_d - t, z: top_z - sw.mm,
+            width: inner_w, height: sw.mm, thickness: t
+          )
+        end
+        
+        # Раскрой
+        add_cut(
+          name: "Царга передняя",
+          length: inner_w_mm,
+          width: sw,
+          thickness: @thickness,
+          material: "ЛДСП"
+        )
+        add_cut(
+          name: "Царга задняя",
+          length: inner_w_mm,
+          width: sw,
+          thickness: @thickness,
+          material: "ЛДСП"
+        )
       end
       
       # Построить ящики
