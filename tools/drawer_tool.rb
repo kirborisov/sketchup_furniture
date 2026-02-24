@@ -43,10 +43,10 @@ module SketchupFurniture
       
       # Двойной клик — открыть/закрыть ящик
       def onLButtonDoubleClick(flags, x, y, view)
-        ph = view.pick_helper
-        ph.do_pick(x, y)
+        ip = Sketchup::InputPoint.new
+        ip.pick(view, x, y)
         
-        drawer = find_drawer_from_pick(ph)
+        drawer = find_drawer_from_inputpoint(ip)
         if drawer
           if drawer.open?
             drawer.close
@@ -93,17 +93,40 @@ module SketchupFurniture
       
       private
       
-      # Найти ящик по pick path
-      def find_drawer_from_pick(pick_helper)
-        pick_helper.count.times do |i|
-          path = pick_helper.path_at(i)
-          next unless path
-          
-          path.each do |entity|
+      # Найти ящик через InputPoint#instance_path
+      # (полный путь через все вложенные группы)
+      def find_drawer_from_inputpoint(ip)
+        begin
+          path = ip.instance_path
+          path.count.times do |i|
+            entity = path[i]
             next unless entity.respond_to?(:entityID)
             drawer = @@registry[entity.entityID]
             return drawer if drawer
           end
+        rescue => e
+          # Fallback: поиск по parent chain от face
+          face = ip.face
+          return nil unless face
+          find_drawer_by_parents(face)
+        end
+        nil
+      end
+      
+      # Fallback: идём вверх по parent chain
+      def find_drawer_by_parents(entity)
+        current = entity.parent # Entities collection
+        while current
+          owner = current.respond_to?(:parent) ? current.parent : nil
+          break unless owner
+          break if owner.is_a?(Sketchup::Model)
+          
+          if owner.respond_to?(:entityID)
+            drawer = @@registry[owner.entityID]
+            return drawer if drawer
+          end
+          
+          current = owner.respond_to?(:parent) ? owner.parent : nil
         end
         nil
       end

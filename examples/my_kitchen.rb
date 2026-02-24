@@ -67,3 +67,6 @@ $kitchen.build
 $kitchen.summary
 $kitchen.print_cut_list
 $kitchen.print_hardware_list
+
+# Активируем инструмент ящиков
+$kitchen.activate_drawer_tool
