@@ -94,6 +94,9 @@ module SketchupFurniture
           
           # Фурнитура: направляющие
           add_hardware(**@slide.hardware_entry)
+          
+          # Регистрация для двойного клика
+          Tools::DrawerTool.register(@group, self)
         end
         
         private
