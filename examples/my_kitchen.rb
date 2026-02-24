@@ -13,21 +13,25 @@ $kitchen = Kitchen.new "Кухня" do
     
     # Мойка
     cabinet 600, name: "Мойка" do
+      stretchers :sink      # царги на ребро
       skip :bottom          # под мойкой нет дна
     end
     
     # Ящики
     cabinet 400, name: "Ящики" do
+      stretchers            # стандартные царги
       drawers 3, height: 150, slide: :ball_bearing
     end
     
     # Посуда
     cabinet 600, name: "Посуда" do
+      stretchers            # стандартные царги
       shelves [250, 500]
     end
     
     # Духовка
     cabinet 600, name: "Духовка" do
+      stretchers            # стандартные царги
       skip :back, :bottom   # ниша под встройку
     end
   end
