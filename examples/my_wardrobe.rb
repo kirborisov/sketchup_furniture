@@ -5,7 +5,7 @@
 #   load "путь/sketchup_furniture/sketchup_furniture.rb"
 #   load "путь/sketchup_furniture/examples/my_wardrobe.rb"
 
-wardrobe = Wardrobe.new "Прихожая", depth: 400 do
+$wardrobe = Wardrobe.new "Прихожая", depth: 400 do
   
   # ═══════════ ЛЕВАЯ КОЛОННА ═══════════
   column 900 do
@@ -32,8 +32,8 @@ wardrobe = Wardrobe.new "Прихожая", depth: 400 do
     
     # Низ — ящики (без секций, без дна - ящики занимают всё пространство)
     base 450, name: "Ящики" do
-      skip :bottom        # дно не нужно - ящики на направляющих
-      drawers 3, height: 140, slide: :ball_bearing
+      plinth 80
+      drawers 2, height: 150, slide: :ball_bearing
     end
     
     # Середина — полки
@@ -51,13 +51,12 @@ wardrobe = Wardrobe.new "Прихожая", depth: 400 do
     
     # Скамейка (на ножках 100мм)
     base 450, name: "Скамейка" do
-      legs 100             # ножки 100мм, боковины короче
-      shelf 150
+      skip :bottom        # дно не нужно
     end
     
     # Над скамейкой — открытое (крючки)
     cabinet 1450, name: "Крючки" do
-      skip :back  # без задника — стена видна
+      #skip :back  # без задника — стена видна
     end
     
     # Антресоль
@@ -67,9 +66,9 @@ wardrobe = Wardrobe.new "Прихожая", depth: 400 do
 end
 
 # Строим
-wardrobe.build
+$wardrobe.build
 
 # Выводим результаты
-wardrobe.summary
-wardrobe.print_cut_list
-wardrobe.print_hardware_list
+$wardrobe.summary
+$wardrobe.print_cut_list
+$wardrobe.print_hardware_list

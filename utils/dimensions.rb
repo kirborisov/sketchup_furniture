@@ -5,7 +5,7 @@ module SketchupFurniture
   module Utils
     class Dimensions
       # Смещение размерных линий от объекта
-      OFFSET = 100  # мм
+      OFFSET = 200  # мм
       
       attr_reader :mode, :dimension_entities
       
