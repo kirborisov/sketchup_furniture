@@ -352,15 +352,16 @@ module SketchupFurniture
           
         when :sink
           # Царги на ребро (стоят вертикально)
+          # depth=t (тонкая 18мм по Y), thickness=sw (высота 80мм по Z)
           # Передняя
-          Primitives::Panel.back(
+          Primitives::Panel.horizontal(
             @group, x: x, y: y, z: top_z - sw.mm,
-            width: inner_w, height: sw.mm, thickness: t
+            width: inner_w, depth: t, thickness: sw.mm
           )
           # Задняя
-          Primitives::Panel.back(
+          Primitives::Panel.horizontal(
             @group, x: x, y: y + inner_d - t, z: top_z - sw.mm,
-            width: inner_w, height: sw.mm, thickness: t
+            width: inner_w, depth: t, thickness: sw.mm
           )
         end
         
