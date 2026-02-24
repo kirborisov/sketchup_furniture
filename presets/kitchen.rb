@@ -127,6 +127,7 @@ module SketchupFurniture
       # === ПОСТРОЕНИЕ ===
       
       def build(context = nil)
+        Tools::DrawerTool.clear
         @context = context || Core::Context.new
         @group = create_group(@name)
         
@@ -190,6 +191,11 @@ module SketchupFurniture
       end
       
       # === ЯЩИКИ ===
+      
+      # Активировать инструмент ящиков (двойной клик)
+      def activate_drawer_tool
+        Tools::DrawerTool.activate
+      end
       
       def all_drawers
         drawers = []

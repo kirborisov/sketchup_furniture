@@ -18,6 +18,8 @@ module SketchupFurniture
         @shelves_config = []
         @sections_config = []
         @drawers_config = []  # Конфигурация ящиков
+        @drawers_positions = nil  # Позиции ящиков (альтернативный режим)
+        @drawers_options = {}
         @drawer_objects = []  # Созданные ящики (для анимации)
         @skip_parts = []  # Части которые не строим
         @stretchers_config = nil  # Царги (вместо верхней панели)
@@ -79,9 +81,16 @@ module SketchupFurniture
         self
       end
       
-      # Добавить несколько одинаковых ящиков
-      def drawers(count, height:, slide: :ball_bearing, soft_close: false, draw_slides: false)
-        count.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides) }
+      # Добавить несколько ящиков
+      # По количеству:  drawers 3, height: 150
+      # По позициям Z:   drawers [0, 150, 350]  (высоты вычисляются автоматически)
+      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false)
+        if count_or_positions.is_a?(Array)
+          @drawers_positions = count_or_positions
+          @drawers_options = { slide: slide, soft_close: soft_close, draw_slides: draw_slides }
+        else
+          count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides) }
+        end
         self
       end
       
@@ -184,7 +193,7 @@ module SketchupFurniture
         build_shelves(ox, oy, oz + bottom_offset, inner_w, inner_d)
         
         # Ящики
-        build_drawers(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawers_config.any?
+        build_drawers(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawers_config.any? || @drawers_positions
         
         # Геометрия опоры (если есть)
         if @support.has_geometry?
@@ -384,6 +393,10 @@ module SketchupFurniture
       
       # Построить ящики
       def build_drawers(ox, oy, oz, inner_w_mm, inner_d_mm)
+        # Преобразовать позиции в конфиг (если заданы по позициям)
+        resolve_drawer_positions if @drawers_positions
+        return if @drawers_config.empty?
+        
         # Если есть дно, ящики начинаются выше него
         # Если дна нет (skip :bottom), ящики начинаются от support.bottom_z
         start_z = if build_part?(:bottom)
@@ -422,11 +435,45 @@ module SketchupFurniture
       
       # Смещение ящика по Z (от дна шкафа)
       def drawer_z_offset(index)
-        offset = 0
-        @drawers_config[0...index].each do |cfg|
-          offset += cfg[:height]
+        if @drawers_config[index] && @drawers_config[index][:z_offset]
+          @drawers_config[index][:z_offset]
+        else
+          offset = 0
+          @drawers_config[0...index].each do |cfg|
+            offset += cfg[:height]
+          end
+          offset
         end
-        offset
+      end
+      
+      # Преобразовать позиции ящиков в конфиг с высотами
+      def resolve_drawer_positions
+        positions = @drawers_positions
+        opts = @drawers_options
+        
+        # Внутренняя высота для расчёта последнего ящика
+        side_height = @height - @support.side_height_reduction
+        top_of_bottom = @support.bottom_z + @thickness
+        bottom_of_top = @support.side_start_z + side_height - @thickness
+        inner_h = bottom_of_top - top_of_bottom
+        
+        positions.each_with_index do |pos, i|
+          h = if i < positions.length - 1
+            positions[i + 1] - pos
+          else
+            inner_h - pos
+          end
+          
+          @drawers_config << {
+            height: h,
+            z_offset: pos,
+            slide: opts[:slide],
+            soft_close: opts[:soft_close],
+            draw_slides: opts[:draw_slides]
+          }
+        end
+        
+        @drawers_positions = nil
       end
       
       # Преобразовать проценты в реальные ширины
