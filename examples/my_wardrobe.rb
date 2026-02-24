@@ -5,7 +5,7 @@
 #   load "путь/sketchup_furniture/sketchup_furniture.rb"
 #   load "путь/sketchup_furniture/examples/my_wardrobe.rb"
 
-wardrobe = Wardrobe.new "Прихожая", depth: 400 do
+$wardrobe = Wardrobe.new "Прихожая", depth: 400 do
   
   # ═══════════ ЛЕВАЯ КОЛОННА ═══════════
   column 900 do
@@ -67,9 +67,9 @@ wardrobe = Wardrobe.new "Прихожая", depth: 400 do
 end
 
 # Строим
-wardrobe.build
+$wardrobe.build
 
 # Выводим результаты
-wardrobe.summary
-wardrobe.print_cut_list
-wardrobe.print_hardware_list
+$wardrobe.summary
+$wardrobe.print_cut_list
+$wardrobe.print_hardware_list

@@ -57,6 +57,7 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'body', 'side.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'body', 'top_bottom.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'body', 'back.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'body', 'shelf.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'body', 'countertop.rb')
 
 # 6. Компоненты — ящики
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'drawers', 'slides', 'base_slide.rb')
@@ -79,6 +80,7 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'utils', 'dimensions.rb')
 
 # 11. Пресеты
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'wardrobe.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'kitchen.rb')
 
 
 # === ХЕЛПЕРЫ ===
@@ -100,23 +102,31 @@ puts <<-HELP
 ╔════════════════════════════════════════════════════════════════╗
 ║           МЕБЕЛЬНЫЙ КОНСТРУКТОР v#{SketchupFurniture::VERSION.ljust(26)}║
 ╠════════════════════════════════════════════════════════════════╣
-║  Wardrobe.new "Имя", depth: 400 do                             ║
+║  Wardrobe.new "Имя", depth: 400 do                            ║
 ║    column 900 do                                               ║
-║      base 450, sections: 2                                     ║
-║      cabinet 1450 do                                           ║
-║        shelves [300, 600, 900]                                 ║
-║      end                                                       ║
+║      base 450                                                  ║
+║      cabinet 1450 do shelves [300, 600, 900] end               ║
 ║      top 800, shelf: 400                                       ║
 ║    end                                                         ║
 ║  end.build                                                     ║
 ╠════════════════════════════════════════════════════════════════╣
+║  Kitchen.new "Имя" do                                          ║
+║    lower depth: 560, height: 820 do                            ║
+║      plinth 100                                                ║
+║      cabinet 600, name: "Мойка" do ... end                     ║
+║    end                                                         ║
+║    upper depth: 300, height: 600, at: 1400 do                  ║
+║      cabinet 600, name: "Сушка" do ... end                     ║
+║    end                                                         ║
+║    countertop 38, overhang: 30                                 ║
+║  end.build                                                     ║
+╠════════════════════════════════════════════════════════════════╣
 ║  После .build:                                                 ║
-║    wardrobe.print_cut_list      - раскрой                      ║
-║    wardrobe.print_hardware_list - фурнитура                    ║
-║    wardrobe.summary             - сводка                       ║
-║    wardrobe.show_dimensions     - показать размеры             ║
-║      :overview / :sections / :detailed                         ║
-║    wardrobe.hide_dimensions     - скрыть размеры               ║
+║    .print_cut_list      - раскрой                              ║
+║    .print_hardware_list - фурнитура                            ║
+║    .summary             - сводка                               ║
+║    .show_dimensions     - показать размеры                     ║
+║    .hide_dimensions     - скрыть размеры                       ║
 ╚════════════════════════════════════════════════════════════════╝
 
 HELP
