@@ -23,7 +23,7 @@ module Sketchup
     def normal; Vector.new; end
     def pushpull(*args); end
   end
-  class Vector; def z; 1; end; end
+  class Vector; def z; 1; end; def y; 0; end; end
 end
 
 module Geom
@@ -167,6 +167,121 @@ test "Cabinet — drawer с параметрами" do
   assert_equal :ball_bearing, cfg[:slide], "тип направляющих"
   assert cfg[:soft_close], "плавное закрывание"
   assert cfg[:draw_slides], "рисовать направляющие"
+end
+
+# === ТЕСТЫ DRAWER_ROW ===
+
+test "Cabinet — drawer_row: конфигурация ряда" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 382
+    drawer 382
+  end
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 1, rows.length, "количество рядов"
+  assert_equal 150, rows[0][:height], "высота ряда"
+  assert_equal 2, rows[0][:drawers].length, "количество ящиков в ряду"
+  assert_equal 382, rows[0][:drawers][0][:width], "ширина первого ящика"
+  assert_equal 382, rows[0][:drawers][1][:width], "ширина второго ящика"
+end
+
+test "Cabinet — drawer_row: несколько рядов" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 600, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 382
+    drawer 382
+  end
+  cab.drawer_row(height: 200) do
+    drawer 764  # на всю ширину
+  end
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 2, rows.length, "количество рядов"
+  assert_equal 2, rows[0][:drawers].length, "ящиков в 1 ряду"
+  assert_equal 1, rows[1][:drawers].length, "ящиков во 2 ряду"
+  assert_equal 764, rows[1][:drawers][0][:width], "ширина единственного ящика"
+end
+
+test "Cabinet — drawer_row: параметры наследуются от ряда" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150, soft_close: true, back_gap: 30) do
+    drawer 382
+    drawer 382
+  end
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert rows[0][:drawers][0][:soft_close], "soft_close наследуется"
+  assert_equal 30, rows[0][:drawers][0][:back_gap], "back_gap наследуется"
+  assert rows[0][:drawers][1][:soft_close], "soft_close наследуется (2)"
+end
+
+test "Cabinet — drawer_row: параметры ящика переопределяют ряд" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150, soft_close: false) do
+    drawer 382, soft_close: true
+    drawer 382
+  end
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert rows[0][:drawers][0][:soft_close], "1-й ящик: soft_close переопределён"
+  assert !rows[0][:drawers][1][:soft_close], "2-й ящик: soft_close от ряда"
+end
+
+test "Cabinet — drawer_row: построение создаёт объекты" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 382
+    drawer 382
+  end
+  cab.build
+  
+  assert_equal 2, cab.drawer_objects.length, "создано 2 объекта ящиков"
+end
+
+test "Cabinet — drawer_row: три ящика в ряд" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(900, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 288
+    drawer 288
+    drawer 288
+  end
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 3, rows[0][:drawers].length, "3 ящика в ряду"
+end
+
+test "Cabinet — drawer_row: можно комбинировать с обычными drawers" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 600, 400, name: "Комод")
+  # Обычные ящики
+  cab.drawers(2, height: 150)
+  # Ряд ящиков
+  cab.drawer_row(height: 150) do
+    drawer 382
+    drawer 382
+  end
+  
+  config = cab.instance_variable_get(:@drawers_config)
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 2, config.length, "2 обычных ящика"
+  assert_equal 1, rows.length, "1 ряд ящиков"
+end
+
+test "Cabinet — drawer_row: cut items и hardware генерируются" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 382
+    drawer 382
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  facade_cuts = cuts.select { |c| c.name.include?("Фасад") }
+  assert_equal 2, facade_cuts.length, "2 фасада в раскрое"
+  
+  hw = cab.all_hardware_items
+  slides = hw.select { |h| h.name.include?("Направляющая") }
+  assert_equal 2, slides.length, "2 комплекта направляющих"
 end
 
 # === ИТОГИ ===

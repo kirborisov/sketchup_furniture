@@ -29,6 +29,21 @@ $kitchen = Kitchen.new "Кухня" do
       shelves [250, 500]
     end
     
+    # Столовые приборы (ряды ящиков)
+    cabinet 600, name: "Приборы" do
+      stretchers
+      drawer_row height: 100 do
+        drawer 282            # левый
+        drawer 282            # правый
+      end
+      drawer_row height: 200 do
+        drawer 564            # сплошной
+      end
+      drawer_row height: 200 do
+        drawer 564            # сплошной
+      end
+    end
+    
     # Духовка
     cabinet 600, name: "Духовка" do
       stretchers            # стандартные царги

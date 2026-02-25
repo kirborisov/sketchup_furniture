@@ -20,10 +20,12 @@ module SketchupFurniture
         @drawers_config = []  # Конфигурация ящиков
         @drawers_positions = nil  # Позиции ящиков (альтернативный режим)
         @drawers_options = {}
+        @drawer_rows_config = []  # Ряды ящиков (несколько в ряд)
         @drawer_objects = []  # Созданные ящики (для анимации)
         @skip_parts = []  # Части которые не строим
         @stretchers_config = nil  # Царги (вместо верхней панели)
         @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
+        @_building_row = nil  # Флаг: внутри drawer_row блока
       end
       
       # === DSL МЕТОДЫ ===
@@ -67,18 +69,18 @@ module SketchupFurniture
       # === ЯЩИКИ ===
       
       # Добавить один ящик
-      # height: высота ящика (мм)
-      # slide: тип направляющих (:ball_bearing, :roller, :undermount)
-      # soft_close: плавное закрывание
-      # draw_slides: рисовать направляющие
-      def drawer(height, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20)
-        @drawers_config << {
-          height: height,
-          slide: slide,
-          soft_close: soft_close,
-          draw_slides: draw_slides,
-          back_gap: back_gap
-        }
+      # Вне drawer_row: value = высота ящика (мм)
+      # Внутри drawer_row: value = ширина ящика (мм)
+      def drawer(value, **opts)
+        if @_building_row
+          # Внутри drawer_row — value это ширина
+          merged = @_building_row[:defaults].merge(opts)
+          @_building_row[:drawers] << merged.merge(width: value)
+        else
+          # Обычный режим — value это высота
+          defaults = { slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20 }
+          @drawers_config << defaults.merge(opts).merge(height: value)
+        end
         self
       end
       
@@ -93,6 +95,26 @@ module SketchupFurniture
         else
           count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap) }
         end
+        self
+      end
+      
+      # Ряд ящиков (несколько ящиков по горизонтали)
+      # height: высота ряда (мм)
+      # Внутри блока drawer задаёт ширину каждого ящика
+      #
+      # drawer_row height: 150 do
+      #   drawer 400
+      #   drawer 400
+      # end
+      def drawer_row(height:, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, &block)
+        @_building_row = {
+          height: height,
+          defaults: { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap },
+          drawers: []
+        }
+        instance_eval(&block) if block
+        @drawer_rows_config << @_building_row
+        @_building_row = nil
         self
       end
       
@@ -196,6 +218,9 @@ module SketchupFurniture
         
         # Ящики
         build_drawers(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawers_config.any? || @drawers_positions
+        
+        # Ряды ящиков (несколько в ряд)
+        build_drawer_rows(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawer_rows_config.any?
         
         # Геометрия опоры (если есть)
         if @support.has_geometry?
@@ -478,6 +503,48 @@ module SketchupFurniture
         end
         
         @drawers_positions = nil
+      end
+      
+      # Построить ряды ящиков (несколько в ряд по горизонтали)
+      def build_drawer_rows(ox, oy, oz, inner_w_mm, inner_d_mm)
+        current_z = 0
+        
+        @drawer_rows_config.each_with_index do |row, row_i|
+          row_height = row[:height]
+          row_drawers = row[:drawers]
+          
+          current_x = 0
+          row_drawers.each_with_index do |dcfg, di|
+            drawer_w = dcfg[:width]
+            
+            d = Components::Drawers::Drawer.new(
+              row_height,
+              cabinet_width: drawer_w,
+              cabinet_depth: @depth - @back_thickness,
+              name: "#{@name} ящик #{row_i + 1}-#{di + 1}",
+              slide_type: dcfg[:slide],
+              soft_close: dcfg[:soft_close],
+              draw_slides: dcfg[:draw_slides],
+              back_gap: dcfg[:back_gap] || 20
+            )
+            
+            drawer_context = @context.offset(
+              dx: @thickness + current_x,
+              dy: 0,
+              dz: (@support.bottom_z + @thickness) + current_z
+            )
+            
+            d.build(drawer_context)
+            
+            @cut_items.concat(d.all_cut_items)
+            @hardware_items.concat(d.all_hardware_items)
+            @drawer_objects << d
+            
+            current_x += drawer_w
+          end
+          
+          current_z += row_height
+        end
       end
       
       # Преобразовать проценты в реальные ширины
