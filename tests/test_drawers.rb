@@ -284,6 +284,172 @@ test "Cabinet — drawer_row: cut items и hardware генерируются" do
   assert_equal 2, slides.length, "2 комплекта направляющих"
 end
 
+# === ТЕСТЫ ПЕРЕГОРОДКИ И ПОЛКИ ===
+
+test "Cabinet — drawer_row: перегородки в раскрое (2 ящика)" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 373
+    drawer 373
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  partitions = cuts.select { |c| c.name.include?("Перегородка ящиков") }
+  assert_equal 1, partitions.length, "1 перегородка между 2 ящиками"
+  # CutItem: length >= width, поэтому 396 > 150
+  assert_equal 150, partitions[0].width, "высота перегородки = высота ряда"
+end
+
+test "Cabinet — drawer_row: перегородки (3 ящика в ряд)" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(900, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 252
+    drawer 252
+    drawer 252
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  partitions = cuts.select { |c| c.name.include?("Перегородка ящиков") }
+  assert_equal 2, partitions.length, "2 перегородки между 3 ящиками"
+end
+
+test "Cabinet — drawer_row: горизонтальная полка между рядами" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 600, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 373
+    drawer 373
+  end
+  cab.drawer_row(height: 200) do
+    drawer 764
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 1, shelves.length, "1 полка между 2 рядами"
+end
+
+test "Cabinet — drawer_row: нет полки если один ряд" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 373
+    drawer 373
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 0, shelves.length, "нет полок если 1 ряд"
+end
+
+test "Cabinet — drawer_row: 3 ряда = 2 полки" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 800, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 373
+    drawer 373
+  end
+  cab.drawer_row(height: 150) do
+    drawer 764
+  end
+  cab.drawer_row(height: 150) do
+    drawer 373
+    drawer 373
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 2, shelves.length, "2 полки между 3 рядами"
+end
+
+test "Cabinet — drawer_row: нет перегородки если 1 ящик на ряд" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 200) do
+    drawer 764
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  partitions = cuts.select { |c| c.name.include?("Перегородка ящиков") }
+  assert_equal 0, partitions.length, "нет перегородок для 1 ящика"
+end
+
+# === ТЕСТЫ COUNT ===
+
+test "Cabinet — drawer_row: count автоматически делит ширину" do
+  # inner_w = 800 - 2*18 = 764
+  # 2 ящика, 1 перегородка = 764 - 18 = 746, по 373 каждый
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150, count: 2)
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  # resolve happens at build time, so build first
+  cab.build
+  
+  assert_equal 2, cab.drawer_objects.length, "создано 2 ящика"
+end
+
+test "Cabinet — drawer_row: count: 3 создаёт 3 ящика + 2 перегородки" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(900, 450, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150, count: 3)
+  cab.build
+  
+  assert_equal 3, cab.drawer_objects.length, "3 ящика"
+  
+  cuts = cab.all_cut_items
+  partitions = cuts.select { |c| c.name.include?("Перегородка ящиков") }
+  assert_equal 2, partitions.length, "2 перегородки"
+end
+
+test "Cabinet — drawer_row: count ширина ящиков = (inner_w - перегородки) / count" do
+  # inner_w = 800 - 2*18 = 764
+  # count: 2, 1 partition = 764 - 18 = 746, drawer_w = 373
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150, count: 2)
+  cab.build
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 373, rows[0][:drawers][0][:width], "ширина ящика = 373"
+  assert_equal 373, rows[0][:drawers][1][:width], "ширина ящика = 373"
+end
+
+# === ТЕСТЫ ПОЛКА НАД ПОСЛЕДНИМ РЯДОМ ===
+
+test "Cabinet — drawer_row: полка над последним рядом если нет верха (stretchers)" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.stretchers  # skip(:top)
+  cab.drawer_row(height: 150, count: 2)
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 1, shelves.length, "полка над последним рядом (нет верха)"
+end
+
+test "Cabinet — drawer_row: нет доп полки если есть верхняя панель" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  # top не пропущен — есть верхняя панель
+  cab.drawer_row(height: 150, count: 2)
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 0, shelves.length, "нет доп полки — есть верхняя панель"
+end
+
+test "Cabinet — drawer_row: нет доп полки если 1 ящик без верха" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.stretchers
+  cab.drawer_row(height: 150, count: 1)
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 0, shelves.length, "нет полки — 1 ящик, нет перегородок"
+end
+
 # === ИТОГИ ===
 
 puts "\n" + "=" * 50
