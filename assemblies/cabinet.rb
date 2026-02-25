@@ -78,7 +78,8 @@ module SketchupFurniture
           @_building_row[:drawers] << merged.merge(width: value)
         else
           # Обычный режим — value это высота
-          defaults = { slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20 }
+          defaults = { slide: :ball_bearing, soft_close: false, draw_slides: false,
+                       back_gap: 20, box_top_inset: 20, box_bottom_inset: 20 }
           @drawers_config << defaults.merge(opts).merge(height: value)
         end
         self
@@ -88,12 +89,14 @@ module SketchupFurniture
       # По количеству:  drawers 3, height: 150
       # По позициям Z:   drawers [0, 150, 350]  (высоты вычисляются автоматически)
       # back_gap: зазор между задней стенкой ящика и шкафа (мм, по умолчанию 20)
-      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20)
+      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, box_top_inset: 20, box_bottom_inset: 20)
         if count_or_positions.is_a?(Array)
           @drawers_positions = count_or_positions
-          @drawers_options = { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap }
+          @drawers_options = { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap,
+                               box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset }
         else
-          count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap) }
+          count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides,
+                                            back_gap: back_gap, box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset) }
         end
         self
       end
@@ -112,11 +115,13 @@ module SketchupFurniture
       # Автоматически добавляет:
       # - вертикальные перегородки между ящиками (толщина = @thickness)
       # - горизонтальную полку между рядами
-      def drawer_row(height:, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, &block)
+      def drawer_row(height:, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false,
+                     back_gap: 20, box_top_inset: 20, box_bottom_inset: 20, &block)
         @_building_row = {
           height: height,
           count: count,
-          defaults: { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap },
+          defaults: { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap,
+                      box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset },
           drawers: []
         }
         instance_eval(&block) if block
@@ -431,6 +436,12 @@ module SketchupFurniture
         resolve_drawer_positions if @drawers_positions
         return if @drawers_config.empty?
         
+        facade_gap = SketchupFurniture.config.facade_gap || 3
+        
+        # Фасад покрывает боковины: ширина = cabinet - gap на краях
+        facade_w = @width - facade_gap
+        facade_x_off = @thickness - facade_gap / 2.0
+        
         # Если есть дно, ящики начинаются выше него
         # Если дна нет (skip :bottom), ящики начинаются от support.bottom_z
         start_z = if build_part?(:bottom)
@@ -448,7 +459,12 @@ module SketchupFurniture
             slide_type: cfg[:slide],
             soft_close: cfg[:soft_close],
             draw_slides: cfg[:draw_slides],
-            back_gap: cfg[:back_gap] || 20
+            back_gap: cfg[:back_gap] || 20,
+            facade_gap: facade_gap,
+            facade_width: facade_w,
+            facade_x_offset: facade_x_off,
+            box_top_inset: cfg[:box_top_inset] || 20,
+            box_bottom_inset: cfg[:box_bottom_inset] || 20
           )
           
           drawer_context = @context.offset(
@@ -505,7 +521,9 @@ module SketchupFurniture
             slide: opts[:slide],
             soft_close: opts[:soft_close],
             draw_slides: opts[:draw_slides],
-            back_gap: opts[:back_gap] || 20
+            back_gap: opts[:back_gap] || 20,
+            box_top_inset: opts[:box_top_inset] || 20,
+            box_bottom_inset: opts[:box_bottom_inset] || 20
           }
         end
         
@@ -560,22 +578,28 @@ module SketchupFurniture
           row_drawers = row[:drawers]
           num_drawers = row_drawers.length
           
-          # Facade widths (cover partitions)
-          total_facade_w = inner_w_mm - [num_drawers - 1, 0].max * facade_gap
+          # Facade widths (cover side walls + partitions)
+          # Total facade = cabinet_width - N*facade_gap
+          # (facade_gap/2 on each edge + (N-1)*facade_gap between drawers)
+          total_facade_w = @width - num_drawers * facade_gap
           column_widths = row_drawers.map { |d| d[:width] }
           sum_col_w = column_widths.sum.to_f
           
           facade_widths = column_widths.map { |cw| (cw / sum_col_w * total_facade_w).round }
           facade_widths[-1] = total_facade_w - facade_widths[0..-2].sum
           
-          # Facade X offsets
-          facade_x_offsets = [0]
-          box_x = 0
-          facade_x = 0
-          (0...num_drawers - 1).each do |di|
-            box_x += column_widths[di] + t
-            facade_x += facade_widths[di] + facade_gap
-            facade_x_offsets << (box_x - facade_x)
+          # Facade X offsets (box is inside at t, facade starts at gap/2)
+          facade_x_offsets = []
+          box_x_abs = t.to_f         # from cabinet left edge
+          facade_x_abs = facade_gap / 2.0  # from cabinet left edge
+          row_drawers.each_with_index do |dcfg, di|
+            facade_x_offsets << (box_x_abs - facade_x_abs)
+            box_x_abs += dcfg[:width]
+            facade_x_abs += facade_widths[di]
+            if di < num_drawers - 1
+              box_x_abs += t           # partition
+              facade_x_abs += facade_gap # gap between facades
+            end
           end
           
           # Build drawers + partitions
@@ -594,7 +618,9 @@ module SketchupFurniture
               facade_width: facade_widths[di],
               facade_height: facade_heights[row_i],
               facade_x_offset: facade_x_offsets[di],
-              facade_z_offset: facade_z_offsets[row_i]
+              facade_z_offset: facade_z_offsets[row_i],
+              box_top_inset: dcfg[:box_top_inset] || 20,
+              box_bottom_inset: dcfg[:box_bottom_inset] || 20
             )
             
             drawer_context = @context.offset(

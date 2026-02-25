@@ -306,16 +306,16 @@ test "Короб ящика — помещается по высоте" do
   box_height = drawer.box_height
   facade_gap = drawer.facade_gap  # = 3
   
-  # box_height = 140 - 35 - 3 = 102
-  assert_equal 102, box_height, "высота короба = 102"
+  # box_height = (140 - 3) - 20 - 20 = 97
+  assert_equal 97, box_height, "высота короба = 97"
   
-  # Общая высота: slide + box + gap
-  total = slide_height + box_height + facade_gap
-  assert_equal 140, total, "slide + box + gap = высота ящика"
+  # Общая высота: box + top_inset + bottom_inset + facade_gap = facade_h + gap = height
+  total = box_height + drawer.box_top_inset + drawer.box_bottom_inset + facade_gap
+  assert_equal 140, total, "box + insets + gap = высота ящика"
   
-  # Короб выше направляющих
-  box_bottom_z = slide_height  # = 35
-  assert_equal 35, box_bottom_z, "короб на высоте направляющей"
+  # Короб на высоте bottom_inset (центрирован в фасаде)
+  box_bottom_z = drawer.box_bottom_inset  # = 20
+  assert_equal 20, box_bottom_z, "короб на высоте bottom_inset"
 end
 
 # === КОЛОННЫ В ШКАФУ ===

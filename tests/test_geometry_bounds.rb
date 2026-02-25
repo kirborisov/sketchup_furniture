@@ -172,15 +172,15 @@ test "Ящик — все части внутри габаритов" do
   
   # Короб
   box_width = drawer.box.width      # = 764 - 26 = 738
-  box_height = drawer.box_height    # = 140 - 35 - 3 = 102
+  box_height = drawer.box_height    # = (140 - 3) - 20 - 20 = 97
   box_depth = drawer.box.depth      # = длина направляющих
   
   assert_equal 738, box_width, "ширина короба (минус направляющие)"
-  assert_equal 102, box_height, "высота короба"
+  assert_equal 97, box_height, "высота короба"
   
-  # Короб помещается в ящик
-  total_box_height = slide.height + box_height  # = 35 + 102 = 137
-  assert total_box_height <= 140, "короб + направляющие <= высота ящика"
+  # Короб помещается в фасад (с отступами)
+  total_box_height = box_height + drawer.box_top_inset + drawer.box_bottom_inset
+  assert total_box_height <= 140, "короб + отступы <= высота ящика"
 end
 
 test "Ящик — короб не шире чем внутренняя ширина минус направляющие" do

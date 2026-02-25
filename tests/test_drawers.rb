@@ -133,9 +133,9 @@ test "Drawer — расчёт размеров короба" do
   # 350 (направляющая) - 20 (back_gap) = 330
   assert_equal 330, drawer.box.depth, "глубина короба"
   
-  # Высота короба = высота_ящика - высота_направляющей - зазор
-  # 150 - 35 - 3 = 112
-  assert_equal 112, drawer.box_height, "высота короба"
+  # Высота короба = (facade_h) - top_inset - bottom_inset
+  # facade_h = 150 - 3 = 147, box_h = 147 - 20 - 20 = 107
+  assert_equal 107, drawer.box_height, "высота короба"
 end
 
 # === ТЕСТЫ CABINET С ЯЩИКАМИ ===
@@ -514,9 +514,9 @@ test "Cabinet — drawer_row: фасад шире колонки (покрыва
     assert fw > 373, "фасад (#{fw}) шире колонки (373)"
   end
   
-  # Сумма фасадов + зазор = inner_w
+  # Сумма фасадов + N*зазор = cabinet_width
   widths = facades.map { |f| [f.length, f.width].max }
-  assert_equal 764, widths.sum + 3, "фасады + зазор = inner_w"
+  assert_equal 800, widths.sum + 2 * 3, "фасады + зазоры = cabinet_width"
 end
 
 test "Cabinet — drawer_row: фасад покрывает горизонтальную полку" do
@@ -545,7 +545,7 @@ test "Cabinet — drawer_row: фасад покрывает горизонтал
   assert row1_fh > 197, "фасад ряда 2 (#{row1_fh}) выше 197 — покрывает полку"
 end
 
-test "Cabinet — drawer_row: 1 ящик — фасад = inner_w" do
+test "Cabinet — drawer_row: 1 ящик — фасад = cabinet_w - gap" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
   cab.drawer_row(height: 150) do
     drawer 764
@@ -557,7 +557,7 @@ test "Cabinet — drawer_row: 1 ящик — фасад = inner_w" do
   assert_equal 1, facades.length, "1 фасад"
   
   fw = [facades[0].length, facades[0].width].max
-  assert_equal 764, fw, "фасад = inner_w (нет перегородок)"
+  assert_equal 797, fw, "фасад = cabinet_w - gap (покрывает боковины)"
 end
 
 # === ТЕСТЫ FACADE_GAP FALLBACK ===
@@ -570,8 +570,8 @@ test "Drawer — facade_gap берётся из конфига" do
     150, cabinet_width: 764, cabinet_depth: 400
   )
   assert_equal 5, drawer.facade_gap, "facade_gap из конфига"
-  # box_height = 150 - 35 - 5 = 110
-  assert_equal 110, drawer.box_height, "box_height с facade_gap=5"
+  # facade_h = 150 - 5 = 145, box_h = 145 - 20 - 20 = 105
+  assert_equal 105, drawer.box_height, "box_height с facade_gap=5"
   
   SketchupFurniture.config.facade_gap = old
 end
@@ -581,8 +581,8 @@ test "Drawer — facade_gap можно передать явно" do
     150, cabinet_width: 764, cabinet_depth: 400, facade_gap: 4
   )
   assert_equal 4, drawer.facade_gap, "facade_gap явный"
-  # box_height = 150 - 35 - 4 = 111
-  assert_equal 111, drawer.box_height, "box_height с facade_gap=4"
+  # facade_h = 150 - 4 = 146, box_h = 146 - 20 - 20 = 106
+  assert_equal 106, drawer.box_height, "box_height с facade_gap=4"
 end
 
 test "Drawer — facade_gap fallback если конфиг nil" do
@@ -593,7 +593,8 @@ test "Drawer — facade_gap fallback если конфиг nil" do
     150, cabinet_width: 764, cabinet_depth: 400
   )
   assert_equal 3, drawer.facade_gap, "facade_gap fallback = 3"
-  assert_equal 112, drawer.box_height, "box_height с fallback"
+  # facade_h = 150 - 3 = 147, box_h = 147 - 20 - 20 = 107
+  assert_equal 107, drawer.box_height, "box_height с fallback"
   
   SketchupFurniture.config.facade_gap = old
 end
@@ -629,6 +630,111 @@ test "Cabinet — смешанные drawers + drawer_row строятся" do
   cab.build
   
   assert_equal 4, cab.drawer_objects.length, "4 ящика (2 обычных + 2 в ряду)"
+end
+
+# === ТЕСТЫ ФАСАД ПОКРЫВАЕТ БОКОВИНЫ ===
+
+test "Cabinet — обычные drawers: фасад покрывает боковины" do
+  # cabinet_w = 800, facade_gap = 3
+  # facade_w = 800 - 3 = 797
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
+  cab.drawers(1, height: 150)
+  cab.build
+  
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  fw = [facades[0].length, facades[0].width].max
+  assert_equal 797, fw, "фасад = cabinet_w - gap (покрывает боковины)"
+end
+
+test "Cabinet — drawer_row: 2 ящика покрывают боковины" do
+  # cabinet_w = 800, 2 drawers
+  # total_facade = 800 - 2*3 = 794
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150, count: 2)
+  cab.build
+  
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  widths = facades.map { |f| [f.length, f.width].max }
+  assert_equal 800, widths.sum + 2 * 3, "фасады + зазоры = cabinet_width"
+  
+  # Каждый фасад шире колонки (373)
+  widths.each { |w| assert w > 373, "фасад (#{w}) шире колонки (373)" }
+end
+
+# === ТЕСТЫ BOX INSETS ===
+
+test "Drawer — box_top_inset/box_bottom_inset по умолчанию 20" do
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    150, cabinet_width: 764, cabinet_depth: 400
+  )
+  assert_equal 20, drawer.box_top_inset, "box_top_inset = 20"
+  assert_equal 20, drawer.box_bottom_inset, "box_bottom_inset = 20"
+end
+
+test "Drawer — box_top_inset/box_bottom_inset настраиваются" do
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    150, cabinet_width: 764, cabinet_depth: 400,
+    box_top_inset: 10, box_bottom_inset: 15
+  )
+  assert_equal 10, drawer.box_top_inset, "box_top_inset = 10"
+  assert_equal 15, drawer.box_bottom_inset, "box_bottom_inset = 15"
+  # facade_h = 150 - 3 = 147, box_h = 147 - 10 - 15 = 122
+  assert_equal 122, drawer.box_height, "box_height с пользовательскими отступами"
+end
+
+test "Drawer — box центрирован в фасаде" do
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    200, cabinet_width: 764, cabinet_depth: 400,
+    box_top_inset: 25, box_bottom_inset: 25
+  )
+  # facade_h = 200 - 3 = 197, box_h = 197 - 25 - 25 = 147
+  assert_equal 147, drawer.box_height, "box_height центрирован"
+end
+
+test "Cabinet — drawer DSL передаёт box_insets" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer(150, box_top_inset: 10, box_bottom_inset: 15)
+  
+  cfg = cab.instance_variable_get(:@drawers_config).first
+  assert_equal 10, cfg[:box_top_inset], "box_top_inset в конфиге"
+  assert_equal 15, cfg[:box_bottom_inset], "box_bottom_inset в конфиге"
+end
+
+test "Cabinet — drawers DSL передаёт box_insets" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawers(2, height: 150, box_top_inset: 10, box_bottom_inset: 15)
+  
+  cab.instance_variable_get(:@drawers_config).each do |cfg|
+    assert_equal 10, cfg[:box_top_inset], "box_top_inset"
+    assert_equal 15, cfg[:box_bottom_inset], "box_bottom_inset"
+  end
+end
+
+test "Cabinet — drawer_row DSL передаёт box_insets" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150, count: 2, box_top_inset: 10, box_bottom_inset: 15)
+  cab.build  # resolve_row_drawers вызывается при build
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 2, rows[0][:drawers].length, "2 ящика resolved"
+  rows[0][:drawers].each do |d|
+    assert_equal 10, d[:box_top_inset], "box_top_inset из drawer_row"
+    assert_equal 15, d[:box_bottom_inset], "box_bottom_inset из drawer_row"
+  end
+end
+
+test "Cabinet — drawer внутри drawer_row переопределяет insets" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawer_row(height: 150, box_top_inset: 20, box_bottom_inset: 20) do
+    drawer 382, box_top_inset: 10
+    drawer 382
+  end
+  
+  rows = cab.instance_variable_get(:@drawer_rows_config)
+  assert_equal 10, rows[0][:drawers][0][:box_top_inset], "1-й ящик: переопределён"
+  assert_equal 20, rows[0][:drawers][1][:box_top_inset], "2-й ящик: от ряда"
 end
 
 # === ИТОГИ ===
