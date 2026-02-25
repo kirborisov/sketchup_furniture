@@ -5,7 +5,7 @@ module SketchupFurniture
   module Components
     module Drawers
       class Drawer < Core::Component
-        attr_reader :box, :slide, :facade_thickness, :facade_gap
+        attr_reader :box, :slide, :facade_thickness, :facade_gap, :back_gap
         attr_reader :box_height, :slide_type
         
         # height: полная высота ящика (включая зазоры)
@@ -15,12 +15,13 @@ module SketchupFurniture
                        slide_type: :ball_bearing, soft_close: false,
                        facade_material: :ldsp_16, facade_gap: 3,
                        box_material: :plywood_10, bottom_material: :dvp_4,
-                       draw_slides: false)
+                       draw_slides: false, back_gap: 20)
           
           @slide_type = slide_type
           @facade_gap = facade_gap
           @draw_slides = draw_slides
           @soft_close = soft_close
+          @back_gap = back_gap
           
           # Создаём направляющую
           @slide = create_slide(cabinet_depth, slide_type, soft_close)
@@ -32,7 +33,7 @@ module SketchupFurniture
           
           # Расчёт размеров короба
           box_width = cabinet_width - @slide.width_reduction
-          box_depth = @slide.length
+          box_depth = @slide.length - @back_gap
           @box_height = height - @slide.height - facade_gap
           
           # Полные размеры (с фасадом)
