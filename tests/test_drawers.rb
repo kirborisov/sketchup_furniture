@@ -450,6 +450,116 @@ test "Cabinet — drawer_row: нет доп полки если 1 ящик бе�
   assert_equal 0, shelves.length, "нет полки — 1 ящик, нет перегородок"
 end
 
+# === ТЕСТЫ SMART PANELS ===
+
+test "Cabinet — drawer_row: нет полки между рядами из одного ящика" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 600, 400, name: "Комод")
+  cab.drawer_row(height: 150) do
+    drawer 764
+  end
+  cab.drawer_row(height: 200) do
+    drawer 764
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 0, shelves.length, "нет полки — оба ряда по 1 ящику"
+end
+
+test "Cabinet — drawer_row: полка если один ряд с перегородкой" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 600, 400, name: "Комод")
+  cab.drawer_row(height: 150, count: 2)
+  cab.drawer_row(height: 200) do
+    drawer 764
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  shelves = cuts.select { |c| c.name.include?("Полка ящиков") }
+  assert_equal 1, shelves.length, "полка — верхний ряд с перегородками"
+end
+
+# === ТЕСТЫ FACADE_GAP ===
+
+test "Config — facade_gap по умолчанию 3" do
+  cfg = SketchupFurniture::Core::Config.new
+  assert_equal 3, cfg.facade_gap, "facade_gap = 3"
+end
+
+test "Config — facade_gap можно менять" do
+  old = SketchupFurniture.config.facade_gap
+  SketchupFurniture.config.facade_gap = 5
+  assert_equal 5, SketchupFurniture.config.facade_gap, "facade_gap = 5"
+  SketchupFurniture.config.facade_gap = old
+end
+
+# === ТЕСТЫ FACADE РАЗМЕРЫ ===
+
+test "Cabinet — drawer_row: фасад шире колонки (покрывает перегородку)" do
+  # inner_w = 800 - 2*18 = 764
+  # 2 ящика, column_w = (764-18)/2 = 373
+  # facade_w = (764 - 3) / 2 = 380.5 → 381 + 380
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150, count: 2)
+  cab.build
+  
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  assert_equal 2, facades.length, "2 фасада"
+  
+  # Оба фасада шире 373 (покрывают перегородку)
+  facades.each do |f|
+    fw = [f.length, f.width].max
+    assert fw > 373, "фасад (#{fw}) шире колонки (373)"
+  end
+  
+  # Сумма фасадов + зазор = inner_w
+  widths = facades.map { |f| [f.length, f.width].max }
+  assert_equal 764, widths.sum + 3, "фасады + зазор = inner_w"
+end
+
+test "Cabinet — drawer_row: фасад покрывает горизонтальную полку" do
+  # 2 ряда: 150 + 18 (полка) + 200 = 368
+  # total_facade_h = 368 - 2*3 = 362
+  # facade_h[0] = round(150/350 * 362) = 155
+  # facade_h[1] = 362 - 155 = 207
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 600, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150, count: 2)
+  cab.drawer_row(height: 200) do
+    drawer 764
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  
+  # Фасад нижнего ряда выше 147 (150-3) — покрывает полку
+  row0_facades = facades[0..1]
+  row0_fh = [row0_facades[0].length, row0_facades[0].width].min
+  assert row0_fh > 147, "фасад ряда 1 (#{row0_fh}) выше 147 — покрывает полку"
+  
+  # Фасад верхнего ряда выше 197 (200-3) — покрывает полку
+  row1_facade = facades[2]
+  row1_fh = [row1_facade.length, row1_facade.width].min
+  assert row1_fh > 197, "фасад ряда 2 (#{row1_fh}) выше 197 — покрывает полку"
+end
+
+test "Cabinet — drawer_row: 1 ящик — фасад = inner_w" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод", thickness: 18)
+  cab.drawer_row(height: 150) do
+    drawer 764
+  end
+  cab.build
+  
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  assert_equal 1, facades.length, "1 фасад"
+  
+  fw = [facades[0].length, facades[0].width].max
+  assert_equal 764, fw, "фасад = inner_w (нет перегородок)"
+end
+
 # === ИТОГИ ===
 
 puts "\n" + "=" * 50

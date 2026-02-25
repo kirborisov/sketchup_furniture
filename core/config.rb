@@ -8,6 +8,7 @@ module SketchupFurniture
       attr_accessor :legs_height, :plinth_height, :plinth_inset
       attr_accessor :soft_close, :edge_banding
       attr_accessor :cut_gap, :shelf_inset
+      attr_accessor :facade_gap
       
       def initialize
         # Материалы
@@ -31,6 +32,9 @@ module SketchupFurniture
           visible: 0.4,               # видимые 0.4мм
           hidden: 0                   # скрытые без кромки
         }
+        
+        # Фасады
+        @facade_gap = 3               # зазор между фасадами (мм)
         
         # Раскрой
         @cut_gap = 4                  # зазор на пропил

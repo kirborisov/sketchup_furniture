@@ -13,15 +13,21 @@ module SketchupFurniture
         # cabinet_depth: глубина шкафа (для выбора направляющих)
         def initialize(height, cabinet_width:, cabinet_depth:, name: "Ящик",
                        slide_type: :ball_bearing, soft_close: false,
-                       facade_material: :ldsp_16, facade_gap: 3,
+                       facade_material: :ldsp_16, facade_gap: nil,
                        box_material: :plywood_10, bottom_material: :dvp_4,
-                       draw_slides: false, back_gap: 20)
+                       draw_slides: false, back_gap: 20,
+                       facade_width: nil, facade_height: nil,
+                       facade_x_offset: 0, facade_z_offset: 0)
           
           @slide_type = slide_type
-          @facade_gap = facade_gap
+          @facade_gap = facade_gap || SketchupFurniture.config.facade_gap
           @draw_slides = draw_slides
           @soft_close = soft_close
           @back_gap = back_gap
+          @facade_width = facade_width
+          @facade_height = facade_height
+          @facade_x_offset = facade_x_offset
+          @facade_z_offset = facade_z_offset
           
           # Создаём направляющую
           @slide = create_slide(cabinet_depth, slide_type, soft_close)
@@ -34,7 +40,7 @@ module SketchupFurniture
           # Расчёт размеров короба
           box_width = cabinet_width - @slide.width_reduction
           box_depth = @slide.length - @back_gap
-          @box_height = height - @slide.height - facade_gap
+          @box_height = height - @slide.height - @facade_gap
           
           # Полные размеры (с фасадом)
           super(cabinet_width, height, cabinet_depth, name: name)
@@ -103,35 +109,35 @@ module SketchupFurniture
         private
         
         def build_facade(entities, ox, oy, oz)
-          # Фасад накладной: ширина шкафа × высота ящика
-          # Это ВЕРТИКАЛЬНАЯ панель (плоскость XZ), выступающая вперёд
-          facade_w = @width.mm
-          facade_h = (@height - @facade_gap).mm
+          fw_mm = @facade_width || @width
+          fh_mm = @facade_height || (@height - @facade_gap)
+          facade_w = fw_mm.mm
+          facade_h = fh_mm.mm
           facade_t = @facade_thickness.mm
           
-          # Вертикальная грань на передней кромке шкафа (y = oy)
-          # Фасад выступает ВПЕРЁД на толщину фасада
+          # Смещение фасада (для покрытия перегородок/полок)
+          fx = ox - @facade_x_offset.mm
+          fz = oz - @facade_z_offset.mm
+          
           pts = [
-            [ox, oy, oz],
-            [ox + facade_w, oy, oz],
-            [ox + facade_w, oy, oz + facade_h],
-            [ox, oy, oz + facade_h]
+            [fx, oy, fz],
+            [fx + facade_w, oy, fz],
+            [fx + facade_w, oy, fz + facade_h],
+            [fx, oy, fz + facade_h]
           ]
           face = entities.add_face(pts)
           return unless face
           
-          # Вертикальная грань XZ — нормаль +Y или -Y
-          # Нужно чтобы фасад выступал вперёд (в сторону -Y)
           if face.normal.y > 0
-            face.pushpull(-facade_t)  # вперёд
+            face.pushpull(-facade_t)
           else
-            face.pushpull(facade_t)   # вперёд
+            face.pushpull(facade_t)
           end
           
           add_cut(
             name: "Фасад ящика",
-            length: @width,
-            width: @height - @facade_gap,
+            length: fw_mm,
+            width: fh_mm,
             thickness: @facade_thickness,
             material: @facade_material_name
           )
