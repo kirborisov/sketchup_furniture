@@ -1,38 +1,70 @@
 # sketchup_furniture/components/fronts/door.rb
-# Дверь шкафа (фасад с вращением по петельной стороне)
+# Дверь шкафа — сплошная панель (ЛДСП/МДФ)
+# Базовый класс для всех типов дверей (вращение, open/close)
 
 module SketchupFurniture
   module Components
     module Fronts
       class Door < Core::Component
-        attr_reader :facade_thickness, :facade_gap, :hinge_side
+        attr_reader :facade_thickness, :facade_material_name, :hinge_side
         
-        # facade_width: ширина фасада (мм)
+        # facade_width:  ширина фасада (мм)
         # facade_height: высота фасада (мм)
-        # hinge_side: :left или :right (сторона петель)
-        # facade_material: материал фасада
+        # hinge_side:    :left или :right (сторона петель)
+        # facade_material: материал фасада (:ldsp_16, :mdf_19, ...)
         def initialize(facade_width, facade_height, name: "Дверь",
                        facade_material: :ldsp_16, hinge_side: :left)
           
-          facade_mat = Materials.get(facade_material) || { name: "ЛДСП", thickness: 16 }
-          @facade_thickness = facade_mat[:thickness]
-          @facade_material_name = facade_mat[:name]
           @hinge_side = hinge_side
           @facade_w = facade_width
           @facade_h = facade_height
           
-          super(facade_width, facade_height, facade_mat[:thickness], name: name)
+          facade_mat = Materials.get(facade_material) || { name: "ЛДСП", thickness: 16 }
+          @facade_thickness = facade_mat[:thickness]
+          @facade_material_name = facade_mat[:name]
+          
+          super(facade_width, facade_height, @facade_thickness, name: name)
           
           @open_angle = 0
         end
+        
+        # === ПОСТРОЕНИЕ ===
         
         def build_geometry
           ox = (@context&.x || 0).mm
           oy = (@context&.y || 0).mm
           oz = (@context&.z || 0).mm
           
-          entities = @group.entities
+          build_door_panels(ox, oy, oz)
+          setup_pivot(ox, oy, oz)
           
+          # Регистрация для двойного клика
+          Tools::DrawerTool.register(@group, self)
+        end
+        
+        # === АНИМАЦИЯ ===
+        
+        # Открыть дверь (угол в градусах)
+        def open(angle = nil)
+          angle ||= 90
+          rotate_door(angle)
+        end
+        
+        # Закрыть дверь
+        def close
+          rotate_door(0)
+        end
+        
+        # Открыта ли дверь
+        def open?
+          @open_angle != 0
+        end
+        
+        protected
+        
+        # Подклассы переопределяют этот метод для своей геометрии
+        def build_door_panels(ox, oy, oz)
+          entities = @group.entities
           facade_w = @facade_w.mm
           facade_h = @facade_h.mm
           facade_t = @facade_thickness.mm
@@ -59,32 +91,14 @@ module SketchupFurniture
             thickness: @facade_thickness,
             material: @facade_material_name
           )
-          
-          # Запоминаем точку вращения (петельная сторона)
+        end
+        
+        # Запомнить точку вращения
+        def setup_pivot(ox, oy, oz)
+          facade_w = @facade_w.mm
           @pivot_x = @hinge_side == :left ? ox : (ox + facade_w)
           @pivot_y = oy
           @pivot_z = oz
-          
-          # Регистрация для двойного клика
-          Tools::DrawerTool.register(@group, self)
-        end
-        
-        # === АНИМАЦИЯ ===
-        
-        # Открыть дверь (угол в градусах)
-        def open(angle = nil)
-          angle ||= 90
-          rotate_door(angle)
-        end
-        
-        # Закрыть дверь
-        def close
-          rotate_door(0)
-        end
-        
-        # Открыта ли дверь
-        def open?
-          @open_angle != 0
         end
         
         private

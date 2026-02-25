@@ -764,11 +764,19 @@ module SketchupFurniture
             i.even? ? :left : :right
           end
           
-          d = Components::Fronts::Door.new(
+          # Выбираем класс двери по типу
+          door_opts = opts.dup
+          door_type = door_opts.delete(:type)
+          door_class = case door_type
+                       when :frame then Components::Fronts::FrameDoor
+                       else Components::Fronts::Door
+                       end
+          
+          d = door_class.new(
             dw, facade_h,
             name: "#{@name} дверь #{i + 1}",
             hinge_side: hinge,
-            **opts
+            **door_opts
           )
           
           door_context = @context.offset(
