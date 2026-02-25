@@ -20,7 +20,7 @@ module SketchupFurniture
                        facade_x_offset: 0, facade_z_offset: 0)
           
           @slide_type = slide_type
-          @facade_gap = facade_gap || SketchupFurniture.config.facade_gap
+          @facade_gap = facade_gap || SketchupFurniture.config.facade_gap || 3
           @draw_slides = draw_slides
           @soft_close = soft_close
           @back_gap = back_gap
