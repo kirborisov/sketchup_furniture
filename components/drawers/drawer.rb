@@ -7,6 +7,7 @@ module SketchupFurniture
       class Drawer < Core::Component
         attr_reader :box, :slide, :facade_thickness, :facade_gap, :back_gap
         attr_reader :box_height, :slide_type
+        attr_reader :box_top_inset, :box_bottom_inset
         
         # height: полная высота ящика (включая зазоры)
         # cabinet_width: внутренняя ширина шкафа (для расчёта ширины короба)
@@ -17,7 +18,8 @@ module SketchupFurniture
                        box_material: :plywood_10, bottom_material: :dvp_4,
                        draw_slides: false, back_gap: 20,
                        facade_width: nil, facade_height: nil,
-                       facade_x_offset: 0, facade_z_offset: 0)
+                       facade_x_offset: 0, facade_z_offset: 0,
+                       box_top_inset: 20, box_bottom_inset: 20)
           
           @slide_type = slide_type
           @facade_gap = facade_gap || SketchupFurniture.config.facade_gap || 3
@@ -28,6 +30,8 @@ module SketchupFurniture
           @facade_height = facade_height
           @facade_x_offset = facade_x_offset
           @facade_z_offset = facade_z_offset
+          @box_top_inset = box_top_inset
+          @box_bottom_inset = box_bottom_inset
           
           # Создаём направляющую
           @slide = create_slide(cabinet_depth, slide_type, soft_close)
@@ -40,7 +44,8 @@ module SketchupFurniture
           # Расчёт размеров короба
           box_width = cabinet_width - @slide.width_reduction
           box_depth = @slide.length - @back_gap
-          @box_height = height - @slide.height - @facade_gap
+          effective_facade_h = @facade_height || (height - @facade_gap)
+          @box_height = effective_facade_h - @box_top_inset - @box_bottom_inset
           
           # Полные размеры (с фасадом)
           super(cabinet_width, height, cabinet_depth, name: name)
@@ -84,14 +89,13 @@ module SketchupFurniture
           # Направляющие (если включено)
           build_slides(drawer_entities, ox, oy, oz) if @draw_slides
           
-          # Короб выше направляющих
-          # dx: отступ для направляющей слева
-          # dz: короб стоит НА направляющих, поэтому выше на их высоту
+          # Короб по центру фасада
+          # dz: box_bottom_inset от нижнего края фасада
           # ВАЖНО: передаём группу ящика как родителя, чтобы короб был внутри!
           box_context = Core::Context.new(
             x: @context.x + @slide.thickness,
             y: @context.y,
-            z: @context.z + @slide.height,
+            z: @context.z - @facade_z_offset + @box_bottom_inset,
             parent: @group  # <- короб создаётся ВНУТРИ группы ящика
           )
           @box.build(box_context)
