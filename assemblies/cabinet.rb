@@ -100,15 +100,22 @@ module SketchupFurniture
       
       # Ряд ящиков (несколько ящиков по горизонтали)
       # height: высота ряда (мм)
-      # Внутри блока drawer задаёт ширину каждого ящика
+      # count: количество равных ящиков (auto-divide)
+      # Или блок с drawer для явного задания ширин
       #
-      # drawer_row height: 150 do
+      # drawer_row height: 150, count: 2          # два равных
+      # drawer_row height: 150 do                  # явные ширины
       #   drawer 400
-      #   drawer 400
+      #   drawer 364
       # end
-      def drawer_row(height:, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, &block)
+      #
+      # Автоматически добавляет:
+      # - вертикальные перегородки между ящиками (толщина = @thickness)
+      # - горизонтальную полку между рядами
+      def drawer_row(height:, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, &block)
         @_building_row = {
           height: height,
+          count: count,
           defaults: { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap },
           drawers: []
         }
@@ -506,14 +513,24 @@ module SketchupFurniture
       end
       
       # Построить ряды ящиков (несколько в ряд по горизонтали)
+      # Автоматически строит перегородки и горизонтальные полки между рядами
       def build_drawer_rows(ox, oy, oz, inner_w_mm, inner_d_mm)
-        current_z = 0
+        t = @thickness
+        t_su = t.mm  # SketchUp units
+        inner_d_su = inner_d_mm.mm
+        current_z = 0  # мм, накопленная высота от дна
         
         @drawer_rows_config.each_with_index do |row, row_i|
           row_height = row[:height]
-          row_drawers = row[:drawers]
           
-          current_x = 0
+          # Resolve drawers (count: или явные)
+          resolve_row_drawers(row, inner_w_mm)
+          row_drawers = row[:drawers]
+          num_drawers = row_drawers.length
+          num_partitions = [num_drawers - 1, 0].max
+          
+          # Строим ящики + перегородки
+          current_x = 0  # мм
           row_drawers.each_with_index do |dcfg, di|
             drawer_w = dcfg[:width]
             
@@ -529,9 +546,9 @@ module SketchupFurniture
             )
             
             drawer_context = @context.offset(
-              dx: @thickness + current_x,
+              dx: t + current_x,
               dy: 0,
-              dz: (@support.bottom_z + @thickness) + current_z
+              dz: (@support.bottom_z + t) + current_z
             )
             
             d.build(drawer_context)
@@ -541,9 +558,78 @@ module SketchupFurniture
             @drawer_objects << d
             
             current_x += drawer_w
+            
+            # Вертикальная перегородка после каждого ящика (кроме последнего)
+            if di < num_drawers - 1
+              partition_x = ox + t_su + current_x.mm
+              partition_z = oz + current_z.mm
+              
+              Primitives::Panel.side(
+                @group,
+                x: partition_x, y: oy, z: partition_z,
+                height: row_height.mm,
+                depth: inner_d_su,
+                thickness: t_su
+              )
+              
+              add_cut(
+                name: "Перегородка ящиков #{row_i + 1}-#{di + 1}",
+                length: row_height,
+                width: @depth - @back_thickness,
+                thickness: t,
+                material: "ЛДСП"
+              )
+              
+              current_x += t
+            end
           end
           
           current_z += row_height
+          
+          # Горизонтальная полка между рядами
+          # Также над последним рядом, если нет верхней панели и есть перегородки
+          need_shelf = if row_i < @drawer_rows_config.length - 1
+            true  # между рядами — всегда
+          else
+            # последний ряд: нужна полка если нет верха и есть перегородки
+            !build_part?(:top) && num_partitions > 0
+          end
+          
+          if need_shelf
+            shelf_z = oz + current_z.mm
+            
+            Primitives::Panel.horizontal(
+              @group,
+              x: ox + t_su, y: oy, z: shelf_z,
+              width: inner_w_mm.mm,
+              depth: inner_d_su,
+              thickness: t_su
+            )
+            
+            add_cut(
+              name: "Полка ящиков #{row_i + 1}",
+              length: inner_w_mm,
+              width: @depth - @back_thickness,
+              thickness: t,
+              material: "ЛДСП"
+            )
+            
+            current_z += t
+          end
+        end
+      end
+      
+      # Определить ширины ящиков в ряду
+      def resolve_row_drawers(row, inner_w_mm)
+        # Если указан count: и нет явных ящиков — создаём равные
+        if row[:count] && row[:drawers].empty?
+          num = row[:count]
+          num_partitions = num - 1
+          available = inner_w_mm - num_partitions * @thickness
+          w = (available.to_f / num).floor
+          num.times do
+            row[:drawers] << row[:defaults].merge(width: w)
+          end
         end
       end
       
