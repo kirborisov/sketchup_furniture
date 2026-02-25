@@ -513,36 +513,88 @@ module SketchupFurniture
       end
       
       # Построить ряды ящиков (несколько в ряд по горизонтали)
-      # Автоматически строит перегородки и горизонтальные полки между рядами
+      # Автоматически строит перегородки, полки между рядами
+      # Фасады рассчитываются чтобы закрывать перегородки и полки
       def build_drawer_rows(ox, oy, oz, inner_w_mm, inner_d_mm)
         t = @thickness
-        t_su = t.mm  # SketchUp units
+        t_su = t.mm
         inner_d_su = inner_d_mm.mm
-        current_z = 0  # мм, накопленная высота от дна
+        facade_gap = SketchupFurniture.config.facade_gap
+        num_rows = @drawer_rows_config.length
+        
+        # 1. Resolve all row drawers
+        @drawer_rows_config.each { |row| resolve_row_drawers(row, inner_w_mm) }
+        
+        # 2. Partition counts per row
+        row_partitions = @drawer_rows_config.map { |row| [row[:drawers].length - 1, 0].max }
+        
+        # 3. Smart panels: only between rows where at least one has partitions
+        panels_between = (0...num_rows - 1).map { |i| row_partitions[i] > 0 || row_partitions[i + 1] > 0 }
+        need_top_shelf = !build_part?(:top) && row_partitions[-1] > 0
+        
+        # 4. Compute facade heights (proportional distribution)
+        total_h = @drawer_rows_config.sum { |r| r[:height] }
+        panels_between.each { |p| total_h += t if p }
+        sum_row_h = @drawer_rows_config.sum { |r| r[:height] }.to_f
+        total_facade_h = total_h - num_rows * facade_gap
+        
+        facade_heights = @drawer_rows_config.map { |r| (r[:height] / sum_row_h * total_facade_h).round }
+        facade_heights[-1] = total_facade_h - facade_heights[0..-2].sum
+        
+        # 5. Compute facade Z offsets (how much below drawer box)
+        facade_z_offsets = []
+        acc_facade_z = 0
+        acc_box_z = 0
+        @drawer_rows_config.each_with_index do |row, i|
+          facade_z_offsets[i] = acc_box_z - acc_facade_z
+          acc_facade_z += facade_heights[i] + facade_gap
+          acc_box_z += row[:height]
+          acc_box_z += t if i < num_rows - 1 && panels_between[i]
+        end
+        
+        # 6. Build rows
+        current_z = 0
         
         @drawer_rows_config.each_with_index do |row, row_i|
           row_height = row[:height]
-          
-          # Resolve drawers (count: или явные)
-          resolve_row_drawers(row, inner_w_mm)
           row_drawers = row[:drawers]
           num_drawers = row_drawers.length
-          num_partitions = [num_drawers - 1, 0].max
           
-          # Строим ящики + перегородки
-          current_x = 0  # мм
+          # Facade widths (cover partitions)
+          total_facade_w = inner_w_mm - [num_drawers - 1, 0].max * facade_gap
+          column_widths = row_drawers.map { |d| d[:width] }
+          sum_col_w = column_widths.sum.to_f
+          
+          facade_widths = column_widths.map { |cw| (cw / sum_col_w * total_facade_w).round }
+          facade_widths[-1] = total_facade_w - facade_widths[0..-2].sum
+          
+          # Facade X offsets
+          facade_x_offsets = [0]
+          box_x = 0
+          facade_x = 0
+          (0...num_drawers - 1).each do |di|
+            box_x += column_widths[di] + t
+            facade_x += facade_widths[di] + facade_gap
+            facade_x_offsets << (box_x - facade_x)
+          end
+          
+          # Build drawers + partitions
+          current_x = 0
           row_drawers.each_with_index do |dcfg, di|
-            drawer_w = dcfg[:width]
-            
             d = Components::Drawers::Drawer.new(
               row_height,
-              cabinet_width: drawer_w,
+              cabinet_width: dcfg[:width],
               cabinet_depth: @depth - @back_thickness,
               name: "#{@name} ящик #{row_i + 1}-#{di + 1}",
               slide_type: dcfg[:slide],
               soft_close: dcfg[:soft_close],
               draw_slides: dcfg[:draw_slides],
-              back_gap: dcfg[:back_gap] || 20
+              back_gap: dcfg[:back_gap] || 20,
+              facade_gap: facade_gap,
+              facade_width: facade_widths[di],
+              facade_height: facade_heights[row_i],
+              facade_x_offset: facade_x_offsets[di],
+              facade_z_offset: facade_z_offsets[row_i]
             )
             
             drawer_context = @context.offset(
@@ -557,16 +609,13 @@ module SketchupFurniture
             @hardware_items.concat(d.all_hardware_items)
             @drawer_objects << d
             
-            current_x += drawer_w
+            current_x += dcfg[:width]
             
-            # Вертикальная перегородка после каждого ящика (кроме последнего)
+            # Vertical partition
             if di < num_drawers - 1
-              partition_x = ox + t_su + current_x.mm
-              partition_z = oz + current_z.mm
-              
               Primitives::Panel.side(
                 @group,
-                x: partition_x, y: oy, z: partition_z,
+                x: ox + t_su + current_x.mm, y: oy, z: oz + current_z.mm,
                 height: row_height.mm,
                 depth: inner_d_su,
                 thickness: t_su
@@ -586,21 +635,17 @@ module SketchupFurniture
           
           current_z += row_height
           
-          # Горизонтальная полка между рядами
-          # Также над последним рядом, если нет верхней панели и есть перегородки
-          need_shelf = if row_i < @drawer_rows_config.length - 1
-            true  # между рядами — всегда
+          # Horizontal panel (smart logic)
+          need_shelf = if row_i < num_rows - 1
+            panels_between[row_i]
           else
-            # последний ряд: нужна полка если нет верха и есть перегородки
-            !build_part?(:top) && num_partitions > 0
+            need_top_shelf
           end
           
           if need_shelf
-            shelf_z = oz + current_z.mm
-            
             Primitives::Panel.horizontal(
               @group,
-              x: ox + t_su, y: oy, z: shelf_z,
+              x: ox + t_su, y: oy, z: oz + current_z.mm,
               width: inner_w_mm.mm,
               depth: inner_d_su,
               thickness: t_su
@@ -619,9 +664,8 @@ module SketchupFurniture
         end
       end
       
-      # Определить ширины ящиков в ряду
+      # Determine drawer widths in a row
       def resolve_row_drawers(row, inner_w_mm)
-        # Если указан count: и нет явных ящиков — создаём равные
         if row[:count] && row[:drawers].empty?
           num = row[:count]
           num_partitions = num - 1
