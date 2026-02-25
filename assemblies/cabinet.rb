@@ -519,7 +519,7 @@ module SketchupFurniture
         t = @thickness
         t_su = t.mm
         inner_d_su = inner_d_mm.mm
-        facade_gap = SketchupFurniture.config.facade_gap
+        facade_gap = SketchupFurniture.config.facade_gap || 3
         num_rows = @drawer_rows_config.length
         
         # 1. Resolve all row drawers

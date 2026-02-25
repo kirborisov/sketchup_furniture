@@ -86,6 +86,9 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'wardrobe.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'kitchen.rb')
 
 
+# При повторной загрузке — пересоздать конфиг с новыми параметрами
+SketchupFurniture.reset_config
+
 # === ХЕЛПЕРЫ ===
 
 # Расширение Numeric для миллиметров (если ещё нет)

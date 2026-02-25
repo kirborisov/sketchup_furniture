@@ -560,6 +560,77 @@ test "Cabinet — drawer_row: 1 ящик — фасад = inner_w" do
   assert_equal 764, fw, "фасад = inner_w (нет перегородок)"
 end
 
+# === ТЕСТЫ FACADE_GAP FALLBACK ===
+
+test "Drawer — facade_gap берётся из конфига" do
+  old = SketchupFurniture.config.facade_gap
+  SketchupFurniture.config.facade_gap = 5
+  
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    150, cabinet_width: 764, cabinet_depth: 400
+  )
+  assert_equal 5, drawer.facade_gap, "facade_gap из конфига"
+  # box_height = 150 - 35 - 5 = 110
+  assert_equal 110, drawer.box_height, "box_height с facade_gap=5"
+  
+  SketchupFurniture.config.facade_gap = old
+end
+
+test "Drawer — facade_gap можно передать явно" do
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    150, cabinet_width: 764, cabinet_depth: 400, facade_gap: 4
+  )
+  assert_equal 4, drawer.facade_gap, "facade_gap явный"
+  # box_height = 150 - 35 - 4 = 111
+  assert_equal 111, drawer.box_height, "box_height с facade_gap=4"
+end
+
+test "Drawer — facade_gap fallback если конфиг nil" do
+  old = SketchupFurniture.config.facade_gap
+  SketchupFurniture.config.facade_gap = nil
+  
+  drawer = SketchupFurniture::Components::Drawers::Drawer.new(
+    150, cabinet_width: 764, cabinet_depth: 400
+  )
+  assert_equal 3, drawer.facade_gap, "facade_gap fallback = 3"
+  assert_equal 112, drawer.box_height, "box_height с fallback"
+  
+  SketchupFurniture.config.facade_gap = old
+end
+
+# === ТЕСТЫ ОБЫЧНЫХ DRAWERS С FACADE_GAP ===
+
+test "Cabinet — обычные drawers строятся (не nil)" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawers(2, height: 150)
+  cab.build
+  
+  assert_equal 2, cab.drawer_objects.length, "2 ящика создано"
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  assert_equal 2, facades.length, "2 фасада"
+end
+
+test "Cabinet — drawers по позициям строятся" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 450, 400, name: "Комод")
+  cab.drawers([0, 150, 350])
+  cab.build
+  
+  assert_equal 3, cab.drawer_objects.length, "3 ящика по позициям"
+  cuts = cab.all_cut_items
+  facades = cuts.select { |c| c.name.include?("Фасад") }
+  assert_equal 3, facades.length, "3 фасада"
+end
+
+test "Cabinet — смешанные drawers + drawer_row строятся" do
+  cab = SketchupFurniture::Assemblies::Cabinet.new(800, 700, 400, name: "Комод")
+  cab.drawers(2, height: 100)
+  cab.drawer_row(height: 150, count: 2)
+  cab.build
+  
+  assert_equal 4, cab.drawer_objects.length, "4 ящика (2 обычных + 2 в ряду)"
+end
+
 # === ИТОГИ ===
 
 puts "\n" + "=" * 50
