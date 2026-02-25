@@ -5,7 +5,7 @@ module SketchupFurniture
   module Assemblies
     class Cabinet < Core::Component
       attr_accessor :thickness, :back_thickness
-      attr_reader :shelves_config, :sections_config, :support, :drawer_objects
+      attr_reader :shelves_config, :sections_config, :support, :drawer_objects, :door_objects
       
       # Доступные части для пропуска
       PARTS = [:bottom, :top, :back, :left_side, :right_side].freeze
@@ -22,6 +22,8 @@ module SketchupFurniture
         @drawers_options = {}
         @drawer_rows_config = []  # Ряды ящиков (несколько в ряд)
         @drawer_objects = []  # Созданные ящики (для анимации)
+        @doors_config = nil   # Конфигурация дверей
+        @door_objects = []    # Созданные двери (для анимации)
         @skip_parts = []  # Части которые не строим
         @stretchers_config = nil  # Царги (вместо верхней панели)
         @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
@@ -130,6 +132,24 @@ module SketchupFurniture
         self
       end
       
+      # === ДВЕРИ ===
+      
+      # Одна дверь на весь шкаф
+      # door                         # ЛДСП 16мм
+      # door facade_material: :mdf_19
+      def door(**opts)
+        @doors_config = { count: 1, options: opts }
+        self
+      end
+      
+      # Несколько дверей (делят ширину поровну)
+      # doors 2                      # две створки
+      # doors 2, facade_material: :mdf_19
+      def doors(count, **opts)
+        @doors_config = { count: count, options: opts }
+        self
+      end
+      
       # Цоколь — боковины до пола, дно поднято
       def plinth(height, front_panel: false)
         @support = Components::Support::PlinthSupport.new(height, front_panel: front_panel)
@@ -233,6 +253,9 @@ module SketchupFurniture
         
         # Ряды ящиков (несколько в ряд)
         build_drawer_rows(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawer_rows_config.any?
+        
+        # Двери
+        build_doors(ox, oy, oz, side_height) if @doors_config
         
         # Геометрия опоры (если есть)
         if @support.has_geometry?
@@ -700,6 +723,65 @@ module SketchupFurniture
           num.times do
             row[:drawers] << row[:defaults].merge(width: w)
           end
+        end
+      end
+      
+      # Построить двери
+      def build_doors(ox, oy, oz, side_height)
+        return unless @doors_config
+        
+        facade_gap = SketchupFurniture.config.facade_gap || 3
+        count = @doors_config[:count]
+        opts = @doors_config[:options] || {}
+        
+        # Высота фасада: от начала боковины до конца, минус зазоры
+        facade_h = side_height - facade_gap
+        
+        # Ширина фасадов: вся ширина шкафа минус N*зазор
+        total_facade_w = @width - count * facade_gap
+        
+        # Распределить ширину
+        door_widths = []
+        if count == 1
+          door_widths = [total_facade_w]
+        else
+          w = (total_facade_w.to_f / count).floor
+          count.times { door_widths << w }
+          door_widths[-1] = total_facade_w - door_widths[0..-2].sum
+        end
+        
+        # Построить каждую дверь
+        current_x = facade_gap / 2.0
+        support_z = @support.side_start_z
+        
+        door_widths.each_with_index do |dw, i|
+          # Автоматический выбор стороны петель
+          hinge = if count == 1
+            :left
+          elsif count == 2
+            i == 0 ? :left : :right
+          else
+            i.even? ? :left : :right
+          end
+          
+          d = Components::Fronts::Door.new(
+            dw, facade_h,
+            name: "#{@name} дверь #{i + 1}",
+            hinge_side: hinge,
+            **opts
+          )
+          
+          door_context = @context.offset(
+            dx: current_x,
+            dy: 0,
+            dz: support_z + facade_gap / 2.0
+          )
+          
+          d.build(door_context)
+          @cut_items.concat(d.all_cut_items)
+          @door_objects << d
+          
+          current_x += dw + facade_gap
         end
       end
       

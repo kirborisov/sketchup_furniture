@@ -1,17 +1,17 @@
 # sketchup_furniture/tools/drawer_tool.rb
-# Инструмент для открытия/закрытия ящиков двойным кликом
+# Инструмент для открытия/закрытия ящиков и дверей двойным кликом
 
 module SketchupFurniture
   module Tools
     class DrawerTool
-      # Реестр: entityID группы -> объект Drawer
+      # Реестр: entityID группы -> объект (Drawer или Door)
       @@registry = {}
       
       # === РЕЕСТР ===
       
-      # Зарегистрировать ящик
-      def self.register(group, drawer)
-        @@registry[group.entityID] = drawer if group.respond_to?(:entityID)
+      # Зарегистрировать ящик или дверь
+      def self.register(group, openable)
+        @@registry[group.entityID] = openable if group.respond_to?(:entityID)
       end
       
       # Очистить реестр
@@ -19,7 +19,7 @@ module SketchupFurniture
         @@registry.clear
       end
       
-      # Количество зарегистрированных ящиков
+      # Количество зарегистрированных элементов
       def self.count
         @@registry.size
       end
@@ -33,27 +33,27 @@ module SketchupFurniture
       
       def activate
         @ip = Sketchup::InputPoint.new
-        puts "Инструмент ящиков активирован (двойной клик — открыть/закрыть)"
-        puts "Зарегистрировано ящиков: #{@@registry.size}"
+        puts "Инструмент активирован (двойной клик — открыть/закрыть)"
+        puts "Зарегистрировано элементов: #{@@registry.size}"
       end
       
       def deactivate(view)
         view.invalidate
       end
       
-      # Двойной клик — открыть/закрыть ящик
+      # Двойной клик — открыть/закрыть ящик или дверь
       def onLButtonDoubleClick(flags, x, y, view)
         ip = Sketchup::InputPoint.new
         ip.pick(view, x, y)
         
-        drawer = find_drawer_from_inputpoint(ip)
-        if drawer
-          if drawer.open?
-            drawer.close
-            puts "Ящик закрыт: #{drawer.name}"
+        item = find_drawer_from_inputpoint(ip)
+        if item
+          if item.open?
+            item.close
+            puts "Закрыто: #{item.name}"
           else
-            drawer.open
-            puts "Ящик открыт: #{drawer.name}"
+            item.open
+            puts "Открыто: #{item.name}"
           end
           view.invalidate
         end

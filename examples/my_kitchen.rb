@@ -27,6 +27,7 @@ $kitchen = Kitchen.new "Кухня" do
     cabinet 600, name: "Посуда" do
       stretchers            # стандартные царги
       shelves [250, 500]
+      doors 2               # две створки
     end
     
     # Столовые приборы (ряды ящиков)
@@ -50,16 +51,19 @@ $kitchen = Kitchen.new "Кухня" do
     # Сушка над мойкой
     cabinet 600, name: "Сушка" do
       shelf 300
+      doors 2               # две створки
     end
     
     # Специи
     cabinet 400, name: "Специи" do
       shelves [150, 300, 450]
+      door                  # одна дверь
     end
     
     # Посуда
     cabinet 600, name: "Посуда верх" do
       shelf 300
+      doors 2               # две створки
     end
   end
   
