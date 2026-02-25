@@ -9,6 +9,7 @@ module SketchupFurniture
       attr_accessor :soft_close, :edge_banding
       attr_accessor :cut_gap, :shelf_inset
       attr_accessor :facade_gap
+      attr_accessor :frame_thickness
       
       def initialize
         # Материалы
@@ -35,6 +36,7 @@ module SketchupFurniture
         
         # Фасады
         @facade_gap = 3               # зазор между фасадами (мм)
+        @frame_thickness = 20         # толщина рамочного фасада (мм)
         
         # Раскрой
         @cut_gap = 4                  # зазор на пропил

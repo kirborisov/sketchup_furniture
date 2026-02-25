@@ -54,10 +54,10 @@ $kitchen = Kitchen.new "Кухня" do
       doors 2               # две створки
     end
     
-    # Специи
+    # Специи (рамочная дверь)
     cabinet 400, name: "Специи" do
       shelves [150, 300, 450]
-      door                  # одна дверь
+      door type: :frame     # рамка из массива + филёнка
     end
     
     # Посуда

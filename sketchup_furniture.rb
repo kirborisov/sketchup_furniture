@@ -64,6 +64,7 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'tools', 'drawer_tool.rb')
 
 # 7. Компоненты — фасады
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'fronts', 'door.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'fronts', 'frame_door.rb')
 
 # 8. Компоненты — ящики
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'drawers', 'slides', 'base_slide.rb')
