@@ -1,5 +1,6 @@
 # sketchup_furniture/assemblies/cabinet.rb
 # Базовый шкаф — сборка из компонентов
+# Построение делегируется билдерам (assemblies/builders/)
 
 module SketchupFurniture
   module Assemblies
@@ -7,7 +8,6 @@ module SketchupFurniture
       attr_accessor :thickness, :back_thickness
       attr_reader :shelves_config, :sections_config, :support, :drawer_objects, :door_objects
       
-      # Доступные части для пропуска
       PARTS = [:bottom, :top, :back, :left_side, :right_side].freeze
       
       def initialize(width, height, depth, name: "Шкаф", thickness: 18, back_thickness: 4)
@@ -17,23 +17,21 @@ module SketchupFurniture
         
         @shelves_config = []
         @sections_config = []
-        @drawers_config = []  # Конфигурация ящиков
-        @drawers_positions = nil  # Позиции ящиков (альтернативный режим)
+        @drawers_config = []
+        @drawers_positions = nil
         @drawers_options = {}
-        @drawer_rows_config = []  # Ряды ящиков (несколько в ряд)
-        @drawer_objects = []  # Созданные ящики (для анимации)
-        @doors_config = nil   # Конфигурация дверей
-        @door_objects = []    # Созданные двери (для анимации)
-        @skip_parts = []  # Части которые не строим
-        @stretchers_config = nil  # Царги (вместо верхней панели)
-        @support = Components::Support::SidesSupport.new  # По умолчанию на боковинах
-        @_building_row = nil  # Флаг: внутри drawer_row блока
+        @drawer_rows_config = []
+        @drawer_objects = []
+        @doors_config = nil
+        @door_objects = []
+        @skip_parts = []
+        @stretchers_config = nil
+        @support = Components::Support::SidesSupport.new
+        @_building_row = nil
       end
       
       # === DSL МЕТОДЫ ===
       
-      # Пропустить части шкафа
-      # skip :bottom, :back, :left_side
       def skip(*parts)
         parts.flatten.each do |part|
           unless PARTS.include?(part)
@@ -45,24 +43,20 @@ module SketchupFurniture
         self
       end
       
-      # Проверить нужно ли строить часть
       def build_part?(part)
         !@skip_parts.include?(part)
       end
       
-      # Добавить полку
       def shelf(z_position, adjustable: true)
         @shelves_config << { z: z_position, adjustable: adjustable }
         self
       end
       
-      # Добавить несколько полок
       def shelves(*positions)
         positions.flatten.each { |z| shelf(z) }
         self
       end
       
-      # Задать секции (вертикальные перегородки)
       def sections(*widths)
         @sections_config = widths.flatten
         self
@@ -70,16 +64,11 @@ module SketchupFurniture
       
       # === ЯЩИКИ ===
       
-      # Добавить один ящик
-      # Вне drawer_row: value = высота ящика (мм)
-      # Внутри drawer_row: value = ширина ящика (мм)
       def drawer(value, **opts)
         if @_building_row
-          # Внутри drawer_row — value это ширина
           merged = @_building_row[:defaults].merge(opts)
           @_building_row[:drawers] << merged.merge(width: value)
         else
-          # Обычный режим — value это высота
           defaults = { slide: :ball_bearing, soft_close: false, draw_slides: false,
                        back_gap: 20, box_top_inset: 20, box_bottom_inset: 20 }
           @drawers_config << defaults.merge(opts).merge(height: value)
@@ -87,10 +76,6 @@ module SketchupFurniture
         self
       end
       
-      # Добавить несколько ящиков
-      # По количеству:  drawers 3, height: 150
-      # По позициям Z:   drawers [0, 150, 350]  (высоты вычисляются автоматически)
-      # back_gap: зазор между задней стенкой ящика и шкафа (мм, по умолчанию 20)
       def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, box_top_inset: 20, box_bottom_inset: 20)
         if count_or_positions.is_a?(Array)
           @drawers_positions = count_or_positions
@@ -103,20 +88,6 @@ module SketchupFurniture
         self
       end
       
-      # Ряд ящиков (несколько ящиков по горизонтали)
-      # height: высота ряда (мм)
-      # count: количество равных ящиков (auto-divide)
-      # Или блок с drawer для явного задания ширин
-      #
-      # drawer_row height: 150, count: 2          # два равных
-      # drawer_row height: 150 do                  # явные ширины
-      #   drawer 400
-      #   drawer 364
-      # end
-      #
-      # Автоматически добавляет:
-      # - вертикальные перегородки между ящиками (толщина = @thickness)
-      # - горизонтальную полку между рядами
       def drawer_row(height:, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false,
                      back_gap: 20, box_top_inset: 20, box_bottom_inset: 20, &block)
         @_building_row = {
@@ -134,46 +105,35 @@ module SketchupFurniture
       
       # === ДВЕРИ ===
       
-      # Одна дверь на весь шкаф
-      # door                         # ЛДСП 16мм
-      # door facade_material: :mdf_19
       def door(**opts)
         @doors_config = { count: 1, options: opts }
         self
       end
       
-      # Несколько дверей (делят ширину поровну)
-      # doors 2                      # две створки
-      # doors 2, facade_material: :mdf_19
       def doors(count, **opts)
         @doors_config = { count: count, options: opts }
         self
       end
       
-      # Цоколь — боковины до пола, дно поднято
+      # === ОПОРЫ ===
+      
       def plinth(height, front_panel: false)
         @support = Components::Support::PlinthSupport.new(height, front_panel: front_panel)
         self
       end
       
-      # Ножки — боковины короче
       def legs(height, count: nil, adjustable: true)
         leg_count = count || Components::Support::LegsSupport.calculate_count(@width)
         @support = Components::Support::LegsSupport.new(height, count: leg_count, adjustable: adjustable)
         self
       end
       
-      # Царги вместо сплошного верха
-      # mode: :standard — горизонтально (передняя + задняя)
-      #        :sink    — на ребро (передняя + задняя)
-      # width: ширина царги (мм)
       def stretchers(mode = :standard, width: 80)
         @stretchers_config = { mode: mode, width: width }
         skip(:top)
         self
       end
       
-      # На боковинах (стандарт, по умолчанию)
       def on_sides
         @support = Components::Support::SidesSupport.new
         self
@@ -183,81 +143,94 @@ module SketchupFurniture
       
       def build_geometry
         t = @thickness.mm
-        bt = @back_thickness.mm
         
-        # Смещения от опоры
-        support_z = @support.side_start_z.mm      # откуда начинаются боковины
-        bottom_offset = @support.bottom_z.mm      # где дно
-        side_reduction = @support.side_height_reduction  # насколько короче боковины
-        
-        # Высота боковин (может быть уменьшена для ножек)
-        side_height = @height - side_reduction
-        
-        # Внутренние размеры (в мм)
+        side_height = @height - @support.side_height_reduction
+        bottom_offset = @support.bottom_z.mm
         inner_w_mm = @width - 2 * @thickness
         inner_d_mm = @depth - @back_thickness
         
-        # Внутренняя высота: от верха дна до низа крышки
-        # Учитывает цоколь/ножки правильно
         top_of_bottom = @support.bottom_z + @thickness
         bottom_of_top = @support.side_start_z + side_height - @thickness
         inner_h_mm = bottom_of_top - top_of_bottom
-        
-        # Внутренние размеры (конвертированы для SketchUp)
-        inner_w = inner_w_mm.mm
-        inner_d = inner_d_mm.mm
         inner_h = inner_h_mm.mm
+        inner_d = inner_d_mm.mm
         
-        # Позиция
         ox = (@context&.x || 0).mm
         oy = (@context&.y || 0).mm
         oz = (@context&.z || 0).mm
         
-        # Левая боковина
-        if build_part?(:left_side)
-          build_side(:left, ox, oy, oz + support_z, inner_d, side_height)
+        # Корпус (боковины, верх/дно, задник, царги)
+        body = Builders::BodyBuilder.new(
+          width: @width, height: @height, depth: @depth,
+          thickness: @thickness, back_thickness: @back_thickness,
+          support: @support, skip_parts: @skip_parts,
+          cabinet_name: @name, stretchers_config: @stretchers_config
+        )
+        merge_result(body.build(@group, ox, oy, oz))
+        
+        # Секции (вертикальные перегородки)
+        section_builder = Builders::SectionBuilder.new(
+          sections_config: @sections_config,
+          width: @width, height: @height, depth: @depth,
+          thickness: @thickness, back_thickness: @back_thickness,
+          support: @support, cabinet_name: @name
+        )
+        section_widths = section_builder.resolve_sections
+        
+        if @sections_config.any?
+          merge_result(section_builder.build(@group, ox, oy, oz + bottom_offset + t, inner_d, inner_h))
         end
         
-        # Правая боковина
-        if build_part?(:right_side)
-          build_side(:right, ox + @width.mm - t, oy, oz + support_z, inner_d, side_height)
+        # Полки
+        if @shelves_config.any?
+          shelf_builder = Builders::ShelfBuilder.new(
+            shelves_config: @shelves_config, section_widths: section_widths,
+            width: @width, depth: @depth,
+            thickness: @thickness, back_thickness: @back_thickness,
+            cabinet_name: @name
+          )
+          merge_result(shelf_builder.build(@group, ox, oy, oz + bottom_offset))
         end
-        
-        # Дно (с учётом смещения от опоры)
-        if build_part?(:bottom)
-          build_horizontal(:bottom, ox + t, oy, oz + bottom_offset, inner_w, inner_d)
-        end
-        
-        # Верх
-        if build_part?(:top)
-          build_horizontal(:top, ox + t, oy, oz + support_z + side_height.mm - t, inner_w, inner_d)
-        end
-        
-        # Царги (вместо верхней панели)
-        build_stretchers(ox + t, oy, oz + support_z, inner_w, inner_d, side_height) if @stretchers_config
-        
-        # Задняя стенка
-        if build_part?(:back)
-          back_height = side_height
-          build_back(ox, oy + inner_d, oz + support_z, back_height)
-        end
-        
-        # Секции (перегородки)
-        build_sections(ox, oy, oz + bottom_offset + t, inner_d, inner_h) if @sections_config.any?
-        
-        # Полки (относительно дна)
-        build_shelves(ox, oy, oz + bottom_offset, inner_w, inner_d)
         
         # Ящики
-        build_drawers(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawers_config.any? || @drawers_positions
+        if @drawers_config.any? || @drawers_positions
+          drawer_builder = Builders::DrawerBuilder.new(
+            drawers_config: @drawers_config, drawers_positions: @drawers_positions,
+            drawers_options: @drawers_options,
+            width: @width, height: @height, depth: @depth,
+            thickness: @thickness, back_thickness: @back_thickness,
+            support: @support, skip_parts: @skip_parts, cabinet_name: @name
+          )
+          result = drawer_builder.build(@context, inner_w_mm, inner_d_mm)
+          merge_result(result)
+          @drawer_objects.concat(result[:objects] || [])
+        end
         
-        # Ряды ящиков (несколько в ряд)
-        build_drawer_rows(ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm) if @drawer_rows_config.any?
+        # Ряды ящиков
+        if @drawer_rows_config.any?
+          row_builder = Builders::DrawerRowBuilder.new(
+            drawer_rows_config: @drawer_rows_config,
+            width: @width, depth: @depth,
+            thickness: @thickness, back_thickness: @back_thickness,
+            support: @support, skip_parts: @skip_parts, cabinet_name: @name
+          )
+          result = row_builder.build(@group, @context, ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm)
+          merge_result(result)
+          @drawer_objects.concat(result[:objects] || [])
+        end
         
         # Двери
-        build_doors(ox, oy, oz, side_height) if @doors_config
+        if @doors_config
+          door_builder = Builders::DoorBuilder.new(
+            doors_config: @doors_config, width: @width,
+            support: @support, cabinet_name: @name
+          )
+          result = door_builder.build(@context, ox, oy, oz, side_height)
+          merge_result(result)
+          @door_objects.concat(result[:objects] || [])
+        end
         
-        # Геометрия опоры (если есть)
+        # Геометрия опоры
         if @support.has_geometry?
           @support.build(@group, x: ox, y: oy, z: oz, width: @width.mm, depth: @depth.mm, thickness: t)
         end
@@ -270,546 +243,9 @@ module SketchupFurniture
       
       private
       
-      def build_side(position, x, y, z, depth, height)
-        Primitives::Panel.side(
-          @group, x: x, y: y, z: z,
-          height: height.mm,
-          depth: depth,
-          thickness: @thickness.mm
-        )
-        
-        add_cut(
-          name: position == :left ? "Боковина левая" : "Боковина правая",
-          length: height,
-          width: @depth - @back_thickness,
-          thickness: @thickness,
-          material: "ЛДСП"
-        )
-      end
-      
-      def build_horizontal(position, x, y, z, width, depth)
-        Primitives::Panel.horizontal(
-          @group, x: x, y: y, z: z,
-          width: width,
-          depth: depth,
-          thickness: @thickness.mm
-        )
-        
-        add_cut(
-          name: position == :top ? "Верх" : "Дно",
-          length: @width - 2 * @thickness,
-          width: @depth - @back_thickness,
-          thickness: @thickness,
-          material: "ЛДСП"
-        )
-      end
-      
-      def build_back(x, y, z, height)
-        Primitives::Panel.back(
-          @group, x: x, y: y, z: z,
-          width: @width.mm,
-          height: height.mm,
-          thickness: @back_thickness.mm
-        )
-        
-        add_cut(
-          name: "Задняя стенка",
-          length: height,
-          width: @width,
-          thickness: @back_thickness,
-          material: "ДВП"
-        )
-      end
-      
-      def build_sections(ox, oy, oz, inner_d, inner_h)
-        t = @thickness.mm
-        
-        # Высота перегородки = внутренняя высота (от дна до верха)
-        side_height = @height - @support.side_height_reduction
-        top_of_bottom = @support.bottom_z + @thickness
-        bottom_of_top = @support.side_start_z + side_height - @thickness
-        panel_height = bottom_of_top - top_of_bottom
-        panel_depth = @depth - @back_thickness
-        
-        # Вычисляем реальные ширины секций
-        section_widths = resolve_sections
-        
-        x_pos = ox + t
-        section_widths[0..-2].each_with_index do |sec_w, i|
-          x_pos += sec_w.mm
-          
-          Primitives::Panel.side(
-            @group, x: x_pos, y: oy, z: oz,
-            height: inner_h,
-            depth: inner_d,
-            thickness: t
-          )
-          
-          add_cut(
-            name: "Перегородка #{i + 1}",
-            length: panel_height,
-            width: panel_depth,
-            thickness: @thickness,
-            material: "ЛДСП"
-          )
-          
-          x_pos += t
-        end
-      end
-      
-      def build_shelves(ox, oy, oz, inner_w, inner_d)
-        t = @thickness.mm
-        section_widths = resolve_sections
-        
-        if section_widths.empty?
-          # Одна секция на всю ширину
-          @shelves_config.each_with_index do |shelf_cfg, i|
-            build_shelf(ox + t, oy, oz + shelf_cfg[:z].mm, inner_w, inner_d, i + 1, 1)
-          end
-        else
-          # Несколько секций
-          x_pos = ox + t
-          section_widths.each_with_index do |sec_w, sec_i|
-            @shelves_config.each_with_index do |shelf_cfg, shi|
-              build_shelf(x_pos, oy, oz + shelf_cfg[:z].mm, sec_w.mm, inner_d, shi + 1, sec_i + 1)
-            end
-            x_pos += sec_w.mm + t
-          end
-        end
-      end
-      
-      def build_shelf(x, y, z, width, depth, shelf_num, section_num)
-        Primitives::Panel.horizontal(
-          @group, x: x, y: y, z: z,
-          width: width,
-          depth: depth,
-          thickness: @thickness.mm
-        )
-        
-        shelf_w = (width / 1.mm).round
-        add_cut(
-          name: "Полка #{section_num}-#{shelf_num}",
-          length: shelf_w,
-          width: @depth - @back_thickness,
-          thickness: @thickness,
-          material: "ЛДСП"
-        )
-        
-        add_hardware(type: :shelf_support, quantity: 4)
-      end
-      
-      # Построить царги
-      def build_stretchers(x, y, z, inner_w, inner_d, side_height)
-        t = @thickness.mm
-        sw = @stretchers_config[:width]   # ширина царги (мм)
-        inner_w_mm = @width - 2 * @thickness
-        
-        # Верх боковин
-        top_z = z + side_height.mm
-        
-        case @stretchers_config[:mode]
-        when :standard
-          # Горизонтальные царги (лежат плашмя)
-          # Передняя
-          Primitives::Panel.horizontal(
-            @group, x: x, y: y, z: top_z - t,
-            width: inner_w, depth: sw.mm, thickness: t
-          )
-          # Задняя
-          Primitives::Panel.horizontal(
-            @group, x: x, y: y + inner_d - sw.mm, z: top_z - t,
-            width: inner_w, depth: sw.mm, thickness: t
-          )
-          
-        when :sink
-          # Царги на ребро (стоят вертикально)
-          # depth=t (тонкая 18мм по Y), thickness=sw (высота 80мм по Z)
-          # Передняя
-          Primitives::Panel.horizontal(
-            @group, x: x, y: y, z: top_z - sw.mm,
-            width: inner_w, depth: t, thickness: sw.mm
-          )
-          # Задняя
-          Primitives::Panel.horizontal(
-            @group, x: x, y: y + inner_d - t, z: top_z - sw.mm,
-            width: inner_w, depth: t, thickness: sw.mm
-          )
-        end
-        
-        # Раскрой
-        add_cut(
-          name: "Царга передняя",
-          length: inner_w_mm,
-          width: sw,
-          thickness: @thickness,
-          material: "ЛДСП"
-        )
-        add_cut(
-          name: "Царга задняя",
-          length: inner_w_mm,
-          width: sw,
-          thickness: @thickness,
-          material: "ЛДСП"
-        )
-      end
-      
-      # Построить ящики
-      def build_drawers(ox, oy, oz, inner_w_mm, inner_d_mm)
-        # Преобразовать позиции в конфиг (если заданы по позициям)
-        resolve_drawer_positions if @drawers_positions
-        return if @drawers_config.empty?
-        
-        facade_gap = SketchupFurniture.config.facade_gap || 3
-        
-        # Фасад покрывает боковины: ширина = cabinet - gap на краях
-        facade_w = @width - facade_gap
-        facade_x_off = @thickness - facade_gap / 2.0
-        
-        # Если есть дно, ящики начинаются выше него
-        # Если дна нет (skip :bottom), ящики начинаются от support.bottom_z
-        start_z = if build_part?(:bottom)
-          @support.bottom_z + @thickness
-        else
-          @support.bottom_z
-        end
-        
-        @drawers_config.each_with_index do |cfg, i|
-          drawer = Components::Drawers::Drawer.new(
-            cfg[:height],
-            cabinet_width: inner_w_mm,
-            cabinet_depth: @depth - @back_thickness,
-            name: "#{@name} ящик #{i + 1}",
-            slide_type: cfg[:slide],
-            soft_close: cfg[:soft_close],
-            draw_slides: cfg[:draw_slides],
-            back_gap: cfg[:back_gap] || 20,
-            facade_gap: facade_gap,
-            facade_width: facade_w,
-            facade_x_offset: facade_x_off,
-            box_top_inset: cfg[:box_top_inset] || 20,
-            box_bottom_inset: cfg[:box_bottom_inset] || 20
-          )
-          
-          drawer_context = @context.offset(
-            dx: @thickness,
-            dy: 0,
-            dz: start_z + drawer_z_offset(i)
-          )
-          
-          drawer.build(drawer_context)
-          
-          # Собираем детали и фурнитуру
-          @cut_items.concat(drawer.all_cut_items)
-          @hardware_items.concat(drawer.all_hardware_items)
-          
-          # Сохраняем для анимации
-          @drawer_objects << drawer
-        end
-      end
-      
-      # Смещение ящика по Z (от дна шкафа)
-      def drawer_z_offset(index)
-        if @drawers_config[index] && @drawers_config[index][:z_offset]
-          @drawers_config[index][:z_offset]
-        else
-          offset = 0
-          @drawers_config[0...index].each do |cfg|
-            offset += cfg[:height]
-          end
-          offset
-        end
-      end
-      
-      # Преобразовать позиции ящиков в конфиг с высотами
-      def resolve_drawer_positions
-        positions = @drawers_positions
-        opts = @drawers_options
-        
-        # Внутренняя высота для расчёта последнего ящика
-        side_height = @height - @support.side_height_reduction
-        top_of_bottom = @support.bottom_z + @thickness
-        bottom_of_top = @support.side_start_z + side_height - @thickness
-        inner_h = bottom_of_top - top_of_bottom
-        
-        positions.each_with_index do |pos, i|
-          h = if i < positions.length - 1
-            positions[i + 1] - pos
-          else
-            inner_h - pos
-          end
-          
-          @drawers_config << {
-            height: h,
-            z_offset: pos,
-            slide: opts[:slide],
-            soft_close: opts[:soft_close],
-            draw_slides: opts[:draw_slides],
-            back_gap: opts[:back_gap] || 20,
-            box_top_inset: opts[:box_top_inset] || 20,
-            box_bottom_inset: opts[:box_bottom_inset] || 20
-          }
-        end
-        
-        @drawers_positions = nil
-      end
-      
-      # Построить ряды ящиков (несколько в ряд по горизонтали)
-      # Автоматически строит перегородки, полки между рядами
-      # Фасады рассчитываются чтобы закрывать перегородки и полки
-      def build_drawer_rows(ox, oy, oz, inner_w_mm, inner_d_mm)
-        t = @thickness
-        t_su = t.mm
-        inner_d_su = inner_d_mm.mm
-        facade_gap = SketchupFurniture.config.facade_gap || 3
-        num_rows = @drawer_rows_config.length
-        
-        # 1. Resolve all row drawers
-        @drawer_rows_config.each { |row| resolve_row_drawers(row, inner_w_mm) }
-        
-        # 2. Partition counts per row
-        row_partitions = @drawer_rows_config.map { |row| [row[:drawers].length - 1, 0].max }
-        
-        # 3. Smart panels: only between rows where at least one has partitions
-        panels_between = (0...num_rows - 1).map { |i| row_partitions[i] > 0 || row_partitions[i + 1] > 0 }
-        need_top_shelf = !build_part?(:top) && row_partitions[-1] > 0
-        
-        # 4. Compute facade heights (proportional distribution)
-        total_h = @drawer_rows_config.sum { |r| r[:height] }
-        panels_between.each { |p| total_h += t if p }
-        sum_row_h = @drawer_rows_config.sum { |r| r[:height] }.to_f
-        total_facade_h = total_h - num_rows * facade_gap
-        
-        facade_heights = @drawer_rows_config.map { |r| (r[:height] / sum_row_h * total_facade_h).round }
-        facade_heights[-1] = total_facade_h - facade_heights[0..-2].sum
-        
-        # 5. Compute facade Z offsets (how much below drawer box)
-        facade_z_offsets = []
-        acc_facade_z = 0
-        acc_box_z = 0
-        @drawer_rows_config.each_with_index do |row, i|
-          facade_z_offsets[i] = acc_box_z - acc_facade_z
-          acc_facade_z += facade_heights[i] + facade_gap
-          acc_box_z += row[:height]
-          acc_box_z += t if i < num_rows - 1 && panels_between[i]
-        end
-        
-        # 6. Build rows
-        current_z = 0
-        
-        @drawer_rows_config.each_with_index do |row, row_i|
-          row_height = row[:height]
-          row_drawers = row[:drawers]
-          num_drawers = row_drawers.length
-          
-          # Facade widths (cover side walls + partitions)
-          # Total facade = cabinet_width - N*facade_gap
-          # (facade_gap/2 on each edge + (N-1)*facade_gap between drawers)
-          total_facade_w = @width - num_drawers * facade_gap
-          column_widths = row_drawers.map { |d| d[:width] }
-          sum_col_w = column_widths.sum.to_f
-          
-          facade_widths = column_widths.map { |cw| (cw / sum_col_w * total_facade_w).round }
-          facade_widths[-1] = total_facade_w - facade_widths[0..-2].sum
-          
-          # Facade X offsets (box is inside at t, facade starts at gap/2)
-          facade_x_offsets = []
-          box_x_abs = t.to_f         # from cabinet left edge
-          facade_x_abs = facade_gap / 2.0  # from cabinet left edge
-          row_drawers.each_with_index do |dcfg, di|
-            facade_x_offsets << (box_x_abs - facade_x_abs)
-            box_x_abs += dcfg[:width]
-            facade_x_abs += facade_widths[di]
-            if di < num_drawers - 1
-              box_x_abs += t           # partition
-              facade_x_abs += facade_gap # gap between facades
-            end
-          end
-          
-          # Build drawers + partitions
-          current_x = 0
-          row_drawers.each_with_index do |dcfg, di|
-            d = Components::Drawers::Drawer.new(
-              row_height,
-              cabinet_width: dcfg[:width],
-              cabinet_depth: @depth - @back_thickness,
-              name: "#{@name} ящик #{row_i + 1}-#{di + 1}",
-              slide_type: dcfg[:slide],
-              soft_close: dcfg[:soft_close],
-              draw_slides: dcfg[:draw_slides],
-              back_gap: dcfg[:back_gap] || 20,
-              facade_gap: facade_gap,
-              facade_width: facade_widths[di],
-              facade_height: facade_heights[row_i],
-              facade_x_offset: facade_x_offsets[di],
-              facade_z_offset: facade_z_offsets[row_i],
-              box_top_inset: dcfg[:box_top_inset] || 20,
-              box_bottom_inset: dcfg[:box_bottom_inset] || 20
-            )
-            
-            drawer_context = @context.offset(
-              dx: t + current_x,
-              dy: 0,
-              dz: (@support.bottom_z + t) + current_z
-            )
-            
-            d.build(drawer_context)
-            
-            @cut_items.concat(d.all_cut_items)
-            @hardware_items.concat(d.all_hardware_items)
-            @drawer_objects << d
-            
-            current_x += dcfg[:width]
-            
-            # Vertical partition
-            if di < num_drawers - 1
-              Primitives::Panel.side(
-                @group,
-                x: ox + t_su + current_x.mm, y: oy, z: oz + current_z.mm,
-                height: row_height.mm,
-                depth: inner_d_su,
-                thickness: t_su
-              )
-              
-              add_cut(
-                name: "Перегородка ящиков #{row_i + 1}-#{di + 1}",
-                length: row_height,
-                width: @depth - @back_thickness,
-                thickness: t,
-                material: "ЛДСП"
-              )
-              
-              current_x += t
-            end
-          end
-          
-          current_z += row_height
-          
-          # Horizontal panel (smart logic)
-          need_shelf = if row_i < num_rows - 1
-            panels_between[row_i]
-          else
-            need_top_shelf
-          end
-          
-          if need_shelf
-            Primitives::Panel.horizontal(
-              @group,
-              x: ox + t_su, y: oy, z: oz + current_z.mm,
-              width: inner_w_mm.mm,
-              depth: inner_d_su,
-              thickness: t_su
-            )
-            
-            add_cut(
-              name: "Полка ящиков #{row_i + 1}",
-              length: inner_w_mm,
-              width: @depth - @back_thickness,
-              thickness: t,
-              material: "ЛДСП"
-            )
-            
-            current_z += t
-          end
-        end
-      end
-      
-      # Determine drawer widths in a row
-      def resolve_row_drawers(row, inner_w_mm)
-        if row[:count] && row[:drawers].empty?
-          num = row[:count]
-          num_partitions = num - 1
-          available = inner_w_mm - num_partitions * @thickness
-          w = (available.to_f / num).floor
-          num.times do
-            row[:drawers] << row[:defaults].merge(width: w)
-          end
-        end
-      end
-      
-      # Построить двери
-      def build_doors(ox, oy, oz, side_height)
-        return unless @doors_config
-        
-        facade_gap = SketchupFurniture.config.facade_gap || 3
-        count = @doors_config[:count]
-        opts = @doors_config[:options] || {}
-        
-        # Высота фасада: от начала боковины до конца, минус зазоры
-        facade_h = side_height - facade_gap
-        
-        # Ширина фасадов: вся ширина шкафа минус N*зазор
-        total_facade_w = @width - count * facade_gap
-        
-        # Распределить ширину
-        door_widths = []
-        if count == 1
-          door_widths = [total_facade_w]
-        else
-          w = (total_facade_w.to_f / count).floor
-          count.times { door_widths << w }
-          door_widths[-1] = total_facade_w - door_widths[0..-2].sum
-        end
-        
-        # Построить каждую дверь
-        current_x = facade_gap / 2.0
-        support_z = @support.side_start_z
-        
-        door_widths.each_with_index do |dw, i|
-          # Автоматический выбор стороны петель
-          hinge = if count == 1
-            :left
-          elsif count == 2
-            i == 0 ? :left : :right
-          else
-            i.even? ? :left : :right
-          end
-          
-          # Выбираем класс двери по типу
-          door_opts = opts.dup
-          door_type = door_opts.delete(:type)
-          door_class = case door_type
-                       when :frame then Components::Fronts::FrameDoor
-                       else Components::Fronts::Door
-                       end
-          
-          d = door_class.new(
-            dw, facade_h,
-            name: "#{@name} дверь #{i + 1}",
-            hinge_side: hinge,
-            **door_opts
-          )
-          
-          door_context = @context.offset(
-            dx: current_x,
-            dy: 0,
-            dz: support_z + facade_gap / 2.0
-          )
-          
-          d.build(door_context)
-          @cut_items.concat(d.all_cut_items)
-          @door_objects << d
-          
-          current_x += dw + facade_gap
-        end
-      end
-      
-      # Преобразовать проценты в реальные ширины
-      def resolve_sections
-        return [] if @sections_config.empty?
-        
-        inner_w = @width - 2 * @thickness
-        num_partitions = @sections_config.length - 1
-        partitions_w = num_partitions * @thickness
-        available_w = inner_w - partitions_w
-        
-        @sections_config.map do |sec|
-          if sec.is_a?(String) && sec.end_with?("%")
-            percent = sec.to_f
-            (available_w * percent / 100.0).round
-          else
-            sec.to_i
-          end
-        end
+      def merge_result(result)
+        @cut_items.concat(result[:cut_items] || [])
+        @hardware_items.concat(result[:hardware_items] || [])
       end
     end
   end

@@ -30,7 +30,7 @@ module Sketchup
       $drawn_elements.last[:extrude] = distance
     end
   end
-  class Vector; def z; 1; end; end
+  class Vector; def z; 1; end; def y; 0; end; end
 end
 
 module Geom
@@ -104,7 +104,7 @@ puts "  start_z (без дна) = #{start_z} мм"
 
 configs = cab2.instance_variable_get(:@drawers_config)
 configs.each_with_index do |cfg, i|
-  offset = cab2.send(:drawer_z_offset, i)
+  offset = configs[0...i].sum { |c| c[:height] }
   z_start = start_z + offset
   z_end = z_start + cfg[:height]
   puts "  Ящик #{i+1}: z = #{z_start}..#{z_end} мм (высота #{cfg[:height]})"

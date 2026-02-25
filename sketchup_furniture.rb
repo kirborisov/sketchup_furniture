@@ -72,20 +72,28 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'drawers', 'slides', 'ball
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'drawers', 'drawer_box.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'components', 'drawers', 'drawer.rb')
 
-# 9. Сборки
+# 9. Сборки — билдеры
+load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'builders', 'body_builder.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'builders', 'section_builder.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'builders', 'shelf_builder.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'builders', 'drawer_builder.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'builders', 'drawer_row_builder.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'builders', 'door_builder.rb')
+
+# 10. Сборки — шкаф
 load File.join(SKETCHUP_FURNITURE_PATH, 'assemblies', 'cabinet.rb')
 
-# 10. Контейнеры
+# 11. Контейнеры
 load File.join(SKETCHUP_FURNITURE_PATH, 'containers', 'column.rb')
 
-# 11. Вывод
+# 12. Вывод
 load File.join(SKETCHUP_FURNITURE_PATH, 'output', 'cut_list.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'output', 'hardware_list.rb')
 
-# 12. Утилиты
+# 13. Утилиты
 load File.join(SKETCHUP_FURNITURE_PATH, 'utils', 'dimensions.rb')
 
-# 13. Пресеты
+# 14. Пресеты
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'wardrobe.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'kitchen.rb')
 

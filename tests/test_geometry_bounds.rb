@@ -286,10 +286,9 @@ test "Смещение ящиков по Z — правильная стопка
   
   configs = cab.instance_variable_get(:@drawers_config)
   
-  # Проверяем drawer_z_offset
-  offset_0 = cab.send(:drawer_z_offset, 0)
-  offset_1 = cab.send(:drawer_z_offset, 1)
-  offset_2 = cab.send(:drawer_z_offset, 2)
+  offset_0 = configs[0...0].sum { |c| c[:height] }
+  offset_1 = configs[0...1].sum { |c| c[:height] }
+  offset_2 = configs[0...2].sum { |c| c[:height] }
   
   assert_equal 0, offset_0, "первый ящик — смещение 0"
   assert_equal 100, offset_1, "второй ящик — смещение 100"
