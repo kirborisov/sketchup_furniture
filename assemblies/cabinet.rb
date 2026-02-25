@@ -71,12 +71,13 @@ module SketchupFurniture
       # slide: тип направляющих (:ball_bearing, :roller, :undermount)
       # soft_close: плавное закрывание
       # draw_slides: рисовать направляющие
-      def drawer(height, slide: :ball_bearing, soft_close: false, draw_slides: false)
+      def drawer(height, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20)
         @drawers_config << {
           height: height,
           slide: slide,
           soft_close: soft_close,
-          draw_slides: draw_slides
+          draw_slides: draw_slides,
+          back_gap: back_gap
         }
         self
       end
@@ -84,12 +85,13 @@ module SketchupFurniture
       # Добавить несколько ящиков
       # По количеству:  drawers 3, height: 150
       # По позициям Z:   drawers [0, 150, 350]  (высоты вычисляются автоматически)
-      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false)
+      # back_gap: зазор между задней стенкой ящика и шкафа (мм, по умолчанию 20)
+      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20)
         if count_or_positions.is_a?(Array)
           @drawers_positions = count_or_positions
-          @drawers_options = { slide: slide, soft_close: soft_close, draw_slides: draw_slides }
+          @drawers_options = { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap }
         else
-          count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides) }
+          count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap) }
         end
         self
       end
@@ -413,7 +415,8 @@ module SketchupFurniture
             name: "#{@name} ящик #{i + 1}",
             slide_type: cfg[:slide],
             soft_close: cfg[:soft_close],
-            draw_slides: cfg[:draw_slides]
+            draw_slides: cfg[:draw_slides],
+            back_gap: cfg[:back_gap] || 20
           )
           
           drawer_context = @context.offset(
@@ -469,7 +472,8 @@ module SketchupFurniture
             z_offset: pos,
             slide: opts[:slide],
             soft_close: opts[:soft_close],
-            draw_slides: opts[:draw_slides]
+            draw_slides: opts[:draw_slides],
+            back_gap: opts[:back_gap] || 20
           }
         end
         
