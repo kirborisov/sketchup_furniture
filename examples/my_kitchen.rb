@@ -51,7 +51,7 @@ $kitchen = Kitchen.new "Кухня" do
     # Сушка над мойкой
     cabinet 600, name: "Сушка" do
       shelf 300
-      doors 2               # две створки
+      doors 2, type: :frame               # две створки
     end
     
     # Специи (рамочная дверь)
@@ -63,7 +63,7 @@ $kitchen = Kitchen.new "Кухня" do
     # Посуда
     cabinet 600, name: "Посуда верх" do
       shelf 300
-      doors 2               # две створки
+      doors 2, type: :frame            # две створки
     end
   end
   

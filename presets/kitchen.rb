@@ -238,10 +238,12 @@ module SketchupFurniture
       end
       
       # Построить верхний ряд
+      # Задние стенки верхних шкафов выравниваются с нижними
       def build_upper_row
         x_pos = 0
+        y_offset = @lower_depth - @upper_depth
         @upper_cabinets.each do |cab|
-          cab_context = @context.offset(dx: x_pos, dz: @upper_z)
+          cab_context = @context.offset(dx: x_pos, dy: y_offset, dz: @upper_z)
           cab.build(cab_context)
           x_pos += cab.width
         end
