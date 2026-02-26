@@ -100,7 +100,14 @@ module SketchupFurniture
                 facade_x_offset: facade_x_offsets[di],
                 facade_z_offset: facade_z_offsets[row_i],
                 box_top_inset: dcfg[:box_top_inset] || 20,
-                box_bottom_inset: dcfg[:box_bottom_inset] || 20
+                box_bottom_inset: dcfg[:box_bottom_inset] || 20,
+                facade_type: (dcfg[:type] == :frame ? :frame : :solid),
+                frame_width: dcfg[:frame_width],
+                frame_thickness: dcfg[:frame_thickness],
+                tenon: dcfg[:tenon],
+                panel_gap: dcfg[:panel_gap],
+                panel_thickness: dcfg[:panel_thickness],
+                groove_depth: dcfg[:groove_depth]
               )
 
               drawer_context = context.offset(

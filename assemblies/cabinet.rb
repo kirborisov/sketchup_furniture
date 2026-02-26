@@ -6,7 +6,7 @@ module SketchupFurniture
   module Assemblies
     class Cabinet < Core::Component
       attr_accessor :thickness, :back_thickness
-      attr_reader :shelves_config, :sections_config, :support, :drawer_objects, :door_objects
+      attr_reader :shelves_config, :sections_config, :support, :drawer_objects, :door_objects, :blind_panel_config
       
       PARTS = [:bottom, :top, :back, :left_side, :right_side].freeze
       
@@ -24,6 +24,7 @@ module SketchupFurniture
         @drawer_objects = []
         @doors_config = nil
         @door_objects = []
+        @blind_panel_config = nil
         @skip_parts = []
         @stretchers_config = nil
         @support = Components::Support::SidesSupport.new
@@ -76,25 +77,42 @@ module SketchupFurniture
         self
       end
       
-      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false, back_gap: 20, box_top_inset: 20, box_bottom_inset: 20)
+      def drawers(count_or_positions, height: nil, slide: :ball_bearing, soft_close: false, draw_slides: false,
+                 back_gap: 20, box_top_inset: 20, box_bottom_inset: 20,
+                 type: nil, frame_width: nil, frame_thickness: nil, tenon: nil,
+                 panel_gap: nil, panel_thickness: nil, groove_depth: nil)
         if count_or_positions.is_a?(Array)
           @drawers_positions = count_or_positions
-          @drawers_options = { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap,
-                               box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset }
+          @drawers_options = {
+            slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap,
+            box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset,
+            type: type, frame_width: frame_width, frame_thickness: frame_thickness,
+            tenon: tenon, panel_gap: panel_gap, panel_thickness: panel_thickness, groove_depth: groove_depth
+          }
         else
-          count_or_positions.times { drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides,
-                                            back_gap: back_gap, box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset) }
+          count_or_positions.times do
+            drawer(height, slide: slide, soft_close: soft_close, draw_slides: draw_slides,
+                   back_gap: back_gap, box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset,
+                   type: type, frame_width: frame_width, frame_thickness: frame_thickness,
+                   tenon: tenon, panel_gap: panel_gap, panel_thickness: panel_thickness, groove_depth: groove_depth)
+          end
         end
         self
       end
       
       def drawer_row(height:, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false,
-                     back_gap: 20, box_top_inset: 20, box_bottom_inset: 20, &block)
+                     back_gap: 20, box_top_inset: 20, box_bottom_inset: 20,
+                     type: nil, frame_width: nil, frame_thickness: nil, tenon: nil,
+                     panel_gap: nil, panel_thickness: nil, groove_depth: nil, &block)
         @_building_row = {
           height: height,
           count: count,
-          defaults: { slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap,
-                      box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset },
+          defaults: {
+            slide: slide, soft_close: soft_close, draw_slides: draw_slides, back_gap: back_gap,
+            box_top_inset: box_top_inset, box_bottom_inset: box_bottom_inset,
+            type: type, frame_width: frame_width, frame_thickness: frame_thickness,
+            tenon: tenon, panel_gap: panel_gap, panel_thickness: panel_thickness, groove_depth: groove_depth
+          },
           drawers: []
         }
         instance_eval(&block) if block
@@ -105,13 +123,14 @@ module SketchupFurniture
       
       # === ДВЕРИ ===
       
-      def door(**opts)
-        @doors_config = { count: 1, options: opts }
+      def doors(count, **opts)
+        @doors_config = { count: count, options: opts }
         self
       end
       
-      def doors(count, **opts)
-        @doors_config = { count: count, options: opts }
+      # Глухая панель (не открывается, без петель)
+      def blind_panel(side:, width: nil, facade_material: :ldsp_16)
+        @blind_panel_config = { side: side, width: width, facade_material: facade_material }
         self
       end
       
@@ -219,11 +238,23 @@ module SketchupFurniture
           @drawer_objects.concat(result[:objects] || [])
         end
         
-        # Двери
+        # Глухая панель (до дверей, чтобы DoorBuilder знал зону дверей)
+        if @blind_panel_config
+          blind_builder = Builders::BlindPanelBuilder.new(
+            blind_panel_config: @blind_panel_config,
+            cabinet_width: @width,
+            support: @support,
+            cabinet_name: @name
+          )
+          merge_result(blind_builder.build(@context, ox, oy, oz, side_height))
+        end
+        
+        # Двери (учитывают глухую панель при наличии)
         if @doors_config
           door_builder = Builders::DoorBuilder.new(
             doors_config: @doors_config, width: @width,
-            support: @support, cabinet_name: @name
+            support: @support, cabinet_name: @name,
+            blind_panel_config: @blind_panel_config
           )
           result = door_builder.build(@context, ox, oy, oz, side_height)
           merge_result(result)

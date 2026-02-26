@@ -19,7 +19,7 @@
 - ✅ **Царги** — стандартные и под мойку (stretchers)
 - ✅ **Кухня** — нижний/верхний ряд, столешница (Kitchen)
 - ✅ **Столешница** — с выступом (countertop)
-- ✅ **Двери** — одна или две створки, вращение по петлям (door/doors)
+- ✅ **Двери** — одна или две створки, вращение по петлям (doors 1 / doors 2)
 - ✅ **Рамочные двери** — рамка из массива с шипом и филёнка из фанеры (type: :frame)
 
 ## Установка
@@ -182,6 +182,10 @@ cabinet 500 do
   # С параметрами
   drawer 200, slide: :ball_bearing, soft_close: true
   drawers 4, height: 140, slide: :ball_bearing
+
+  # Рамочный фасад (как у дверей — рамка + филёнка)
+  drawer 150, type: :frame
+  drawers 2, height: 140, type: :frame
 end
 ```
 
@@ -218,12 +222,15 @@ end
 | Параметр | Тип | По умолчанию | Описание |
 |----------|-----|--------------|----------|
 | `height` | Number | — | Высота ящика (мм) |
+| `type` | Symbol | `:solid` | `:solid` — сплошной фасад, `:frame` — рамочный (рамка + филёнка) |
 | `slide` | Symbol | `:ball_bearing` | Тип направляющих |
 | `soft_close` | Boolean | `false` | Плавное закрывание |
 | `draw_slides` | Boolean | `false` | Рисовать направляющие |
 | `back_gap` | Number | `20` | Зазор до задней стенки шкафа (мм) |
 | `box_top_inset` | Number | `20` | Отступ короба от верха фасада (мм) |
 | `box_bottom_inset` | Number | `20` | Отступ короба от низа фасада (мм) |
+
+Для рамочного фасада (`type: :frame`) доступны те же опции, что и у дверей: `frame_width`, `frame_thickness`, `tenon`, `panel_gap`, `panel_thickness`, `groove_depth`.
 
 ### Глобальные параметры фасадов
 
@@ -246,13 +253,13 @@ SketchupFurniture.config.frame_thickness = 20  # толщина рамочног
 ```ruby
 cabinet 600 do
   # Одна дверь (сплошная, ЛДСП)
-  door
+  doors 1
 
   # Две створки (делят ширину пополам)
   doors 2
 
   # С параметром материала
-  door facade_material: :mdf_19
+  doors 1, facade_material: :mdf_19
   doors 2, facade_material: :mdf_19
 end
 ```
@@ -284,10 +291,10 @@ end
 ```ruby
 cabinet 600 do
   # Рамочная дверь с параметрами по умолчанию
-  door type: :frame
+  doors 1, type: :frame
 
   # С настройками рамки
-  door type: :frame, frame_width: 40, frame_thickness: 22
+  doors 1, type: :frame, frame_width: 40, frame_thickness: 22
 
   # Две рамочные створки
   doors 2, type: :frame
@@ -597,8 +604,8 @@ cabinet(height, name:) do
   end
   
   # Двери
-  door                        # одна дверь
-  doors 2                     # две створки
+  doors 1                      # одна дверь
+  doors 2                      # две створки
   
   # Царги
   stretchers                  # стандартные
@@ -627,7 +634,7 @@ ruby test_facade_and_legs.rb
 
 ## Планы развития
 
-- [x] Двери распашные (door/doors)
+- [x] Двери распашные (doors 1 / doors 2)
 - [x] Рамочные двери с шипом и филёнкой (type: :frame)
 - [ ] Двери откидные
 - [ ] Направляющие других типов (роликовые, скрытые)

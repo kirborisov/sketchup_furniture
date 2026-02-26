@@ -15,6 +15,9 @@ module SketchupFurniture
         def initialize(height, cabinet_width:, cabinet_depth:, name: "Ящик",
                        slide_type: :ball_bearing, soft_close: false,
                        facade_material: :ldsp_16, facade_gap: nil,
+                       facade_type: :solid,
+                       frame_width: 50, frame_thickness: nil, tenon: 10,
+                       panel_gap: 2, panel_thickness: 6, groove_depth: nil,
                        box_material: :plywood_10, bottom_material: :dvp_4,
                        draw_slides: false, back_gap: 20,
                        facade_width: nil, facade_height: nil,
@@ -23,6 +26,15 @@ module SketchupFurniture
           
           @slide_type = slide_type
           @facade_gap = facade_gap || SketchupFurniture.config.facade_gap || 3
+          @facade_type = facade_type
+          @frame_opts = {
+            frame_width: frame_width,
+            frame_thickness: frame_thickness || SketchupFurniture.config.frame_thickness || 20,
+            tenon: tenon,
+            panel_gap: panel_gap,
+            panel_thickness: panel_thickness,
+            groove_depth: groove_depth || tenon
+          }
           @draw_slides = draw_slides
           @soft_close = soft_close
           @back_gap = back_gap
@@ -36,10 +48,10 @@ module SketchupFurniture
           # Создаём направляющую
           @slide = create_slide(cabinet_depth, slide_type, soft_close)
           
-          # Материал фасада
+          # Материал фасада (для сплошного)
           facade_mat = Materials.get(facade_material) || { name: "ЛДСП", thickness: 16 }
-          @facade_thickness = facade_mat[:thickness]
-          @facade_material_name = facade_mat[:name]
+          @facade_thickness = (@facade_type == :frame) ? @frame_opts[:frame_thickness] : facade_mat[:thickness]
+          @facade_material_name = (@facade_type == :frame) ? "Массив" : facade_mat[:name]
           
           # Расчёт размеров короба
           box_width = cabinet_width - @slide.width_reduction
@@ -115,14 +127,25 @@ module SketchupFurniture
         def build_facade(entities, ox, oy, oz)
           fw_mm = @facade_width || @width
           fh_mm = @facade_height || (@height - @facade_gap)
+          fx = ox - @facade_x_offset.mm
+          fz = oz - @facade_z_offset.mm
+
+          if @facade_type == :frame
+            # Рамочный фасад: как у сплошного, лицевая грань должна быть впереди (oy - thickness).
+            # FrameFacade строит рамку от origin вглубь (+y), поэтому передаём oy - frame_thickness,
+            # чтобы передняя грань рамки оказалась на одном уровне со сплошным фасадом.
+            ft = (@frame_opts[:frame_thickness] || 20).mm
+            oy_back = oy - ft
+            Components::Fronts::FrameFacade.build(
+              @group, fx, oy_back, fz, fw_mm, fh_mm, self, **@frame_opts
+            )
+            return
+          end
+
+          # Сплошной фасад
           facade_w = fw_mm.mm
           facade_h = fh_mm.mm
           facade_t = @facade_thickness.mm
-          
-          # Смещение фасада (для покрытия перегородок/полок)
-          fx = ox - @facade_x_offset.mm
-          fz = oz - @facade_z_offset.mm
-          
           pts = [
             [fx, oy, fz],
             [fx + facade_w, oy, fz],
@@ -131,13 +154,11 @@ module SketchupFurniture
           ]
           face = entities.add_face(pts)
           return unless face
-          
           if face.normal.y > 0
             face.pushpull(-facade_t)
           else
             face.pushpull(facade_t)
           end
-          
           add_cut(
             name: "Фасад ящика",
             length: fw_mm,

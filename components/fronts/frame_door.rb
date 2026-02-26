@@ -99,152 +99,18 @@ module SketchupFurniture
         
         protected
         
-        # Переопределяем построение геометрии
+        # Переопределяем построение геометрии — переиспользуем общий модуль FrameFacade
         def build_door_panels(ox, oy, oz)
-          fw = @frame_width         # ширина бруска (мм)
-          ft = @frame_thickness     # толщина рамки (мм)
-          gd = @groove_depth        # глубина паза (мм)
-          gw = @panel_thickness     # ширина паза = толщина филёнки (мм)
-          pg = @panel_gap           # зазор филёнки (мм)
-          dw = @facade_w            # ширина двери (мм)
-          dh = @facade_h            # высота двери (мм)
-          
-          go = (ft - gw) / 2.0     # смещение паза от передней грани
-          pi = gd - pg             # на сколько филёнка входит в паз
-          
-          # Panel.side/horizontal строят вглубь (y → y+depth),
-          # а дверь должна выступать ВПЕРЁД, как сплошная.
-          # Сдвигаем начало на -толщину, чтобы задняя грань была на уровне oy
-          # (передняя грань боковин шкафа), а передняя — выступала наружу.
-          oy = oy - ft.mm
-          
-          # Конвертация в единицы SketchUp
-          fw_su = fw.mm
-          ft_su = ft.mm
-          gd_su = gd.mm
-          gw_su = gw.mm
-          go_su = go.mm
-          dw_su = dw.mm
-          dh_su = dh.mm
-          
-          inner_w = dw - 2 * fw     # проём ширина (мм)
-          inner_w_su = inner_w.mm
-          
-          # ─── ЛЕВАЯ СТОЙКА (паз на правой/внутренней грани) ───
-          # Тело (от внешнего края до начала паза)
-          Primitives::Panel.side(
-            @group, x: ox, y: oy, z: oz,
-            height: dh_su, depth: ft_su, thickness: (fw - gd).mm
-          )
-          # Передняя губа паза
-          Primitives::Panel.side(
-            @group, x: ox + (fw - gd).mm, y: oy, z: oz,
-            height: dh_su, depth: go_su, thickness: gd_su
-          )
-          # Задняя губа паза
-          Primitives::Panel.side(
-            @group, x: ox + (fw - gd).mm, y: oy + go_su + gw_su, z: oz,
-            height: dh_su, depth: go_su, thickness: gd_su
-          )
-          
-          # ─── ПРАВАЯ СТОЙКА (паз на левой/внутренней грани) ───
-          sx = ox + dw_su - fw_su
-          # Тело (от конца паза до внешнего края)
-          Primitives::Panel.side(
-            @group, x: sx + gd_su, y: oy, z: oz,
-            height: dh_su, depth: ft_su, thickness: (fw - gd).mm
-          )
-          # Передняя губа паза
-          Primitives::Panel.side(
-            @group, x: sx, y: oy, z: oz,
-            height: dh_su, depth: go_su, thickness: gd_su
-          )
-          # Задняя губа паза
-          Primitives::Panel.side(
-            @group, x: sx, y: oy + go_su + gw_su, z: oz,
-            height: dh_su, depth: go_su, thickness: gd_su
-          )
-          
-          # ─── НИЖНЯЯ ПОПЕРЕЧИНА (паз сверху/на внутренней грани) ───
-          rail_x = ox + fw_su
-          # Тело (от низа до начала паза)
-          Primitives::Panel.horizontal(
-            @group, x: rail_x, y: oy, z: oz,
-            width: inner_w_su, depth: ft_su, thickness: (fw - gd).mm
-          )
-          # Передняя губа паза
-          Primitives::Panel.horizontal(
-            @group, x: rail_x, y: oy, z: oz + (fw - gd).mm,
-            width: inner_w_su, depth: go_su, thickness: gd_su
-          )
-          # Задняя губа паза
-          Primitives::Panel.horizontal(
-            @group, x: rail_x, y: oy + go_su + gw_su, z: oz + (fw - gd).mm,
-            width: inner_w_su, depth: go_su, thickness: gd_su
-          )
-          
-          # ─── ВЕРХНЯЯ ПОПЕРЕЧИНА (паз снизу/на внутренней грани) ───
-          top_z = oz + dh_su - fw_su
-          # Тело (от конца паза до верха)
-          Primitives::Panel.horizontal(
-            @group, x: rail_x, y: oy, z: top_z + gd_su,
-            width: inner_w_su, depth: ft_su, thickness: (fw - gd).mm
-          )
-          # Передняя губа паза
-          Primitives::Panel.horizontal(
-            @group, x: rail_x, y: oy, z: top_z,
-            width: inner_w_su, depth: go_su, thickness: gd_su
-          )
-          # Задняя губа паза
-          Primitives::Panel.horizontal(
-            @group, x: rail_x, y: oy + go_su + gw_su, z: top_z,
-            width: inner_w_su, depth: go_su, thickness: gd_su
-          )
-          
-          # ─── ФИЛЁНКА (фанера, в пазах) ───
-          pw = inner_w + 2 * pi     # ширина филёнки (мм)
-          ph = (dh - 2 * fw) + 2 * pi  # высота филёнки (мм)
-          
-          panel_x = ox + fw_su - pi.mm
-          panel_y = oy + go_su
-          panel_z = oz + fw_su - pi.mm
-          
-          Primitives::Panel.back(
-            @group, x: panel_x, y: panel_y, z: panel_z,
-            width: pw.mm, height: ph.mm, thickness: gw_su
-          )
-          
-          # ─── РАСКРОЙ ───
-          # 2 стойки (массив)
-          add_cut(
-            name: "Стойка рамки",
-            length: dh, width: fw, thickness: ft,
-            material: "Массив"
-          )
-          add_cut(
-            name: "Стойка рамки",
-            length: dh, width: fw, thickness: ft,
-            material: "Массив"
-          )
-          
-          # 2 поперечины (массив, длина включает шипы)
-          rl = inner_w + 2 * @tenon
-          add_cut(
-            name: "Поперечина рамки",
-            length: rl, width: fw, thickness: ft,
-            material: "Массив"
-          )
-          add_cut(
-            name: "Поперечина рамки",
-            length: rl, width: fw, thickness: ft,
-            material: "Массив"
-          )
-          
-          # 1 филёнка (фанера)
-          add_cut(
-            name: "Филёнка",
-            length: pw, width: ph, thickness: @panel_thickness,
-            material: "Фанера"
+          # Дверь выступает вперёд: задняя грань рамки на oy, передняя — на oy - ft
+          oy_back = oy - @frame_thickness.mm
+          Fronts::FrameFacade.build(
+            @group, ox, oy_back, oz, @facade_w, @facade_h, self,
+            frame_width: @frame_width,
+            frame_thickness: @frame_thickness,
+            tenon: @tenon,
+            panel_gap: @panel_gap,
+            panel_thickness: @panel_thickness,
+            groove_depth: @groove_depth
           )
         end
       end

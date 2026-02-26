@@ -53,7 +53,14 @@ module SketchupFurniture
               facade_width: facade_w,
               facade_x_offset: facade_x_off,
               box_top_inset: cfg[:box_top_inset] || 20,
-              box_bottom_inset: cfg[:box_bottom_inset] || 20
+              box_bottom_inset: cfg[:box_bottom_inset] || 20,
+              facade_type: (cfg[:type] == :frame ? :frame : :solid),
+              frame_width: cfg[:frame_width],
+              frame_thickness: cfg[:frame_thickness],
+              tenon: cfg[:tenon],
+              panel_gap: cfg[:panel_gap],
+              panel_thickness: cfg[:panel_thickness],
+              groove_depth: cfg[:groove_depth]
             )
 
             drawer_context = context.offset(
@@ -104,7 +111,10 @@ module SketchupFurniture
               draw_slides: opts[:draw_slides],
               back_gap: opts[:back_gap] || 20,
               box_top_inset: opts[:box_top_inset] || 20,
-              box_bottom_inset: opts[:box_bottom_inset] || 20
+              box_bottom_inset: opts[:box_bottom_inset] || 20,
+              type: opts[:type], frame_width: opts[:frame_width], frame_thickness: opts[:frame_thickness],
+              tenon: opts[:tenon], panel_gap: opts[:panel_gap], panel_thickness: opts[:panel_thickness],
+              groove_depth: opts[:groove_depth]
             }
           end
 

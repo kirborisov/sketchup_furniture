@@ -20,14 +20,22 @@ $kitchen = Kitchen.new "Кухня" do
     # Ящики
     cabinet 400, name: "Ящики" do
       stretchers            # стандартные царги
-      drawers 3, height: 150, slide: :ball_bearing
+      drawers 3, height: 150, type: :frame
     end
     
     # Посуда
     cabinet 600, name: "Посуда" do
       stretchers            # стандартные царги
       shelves [250, 500]
-      doors 2               # две створки
+      doors 2, type: :frame               # две створки
+    end
+    
+    # Шкаф с глухой панелью (торцевой — панель слева, дверь справа)
+    cabinet 600, name: "У торца" do
+      stretchers
+      shelves [250, 500]
+      blind_panel side: :left, width: 200   # глухая панель 200 мм слева
+      doors 1, type: :frame                              # одна дверь на оставшуюся ширину
     end
     
     # Столовые приборы (ряды ящиков)
@@ -44,7 +52,8 @@ $kitchen = Kitchen.new "Кухня" do
       skip :back, :bottom   # ниша под встройку
     end
   end
-  
+
+
   # ═══════════ ВЕРХНИЙ РЯД ═══════════
   upper depth: 300, height: 600, at: 1400 do
     
@@ -57,7 +66,7 @@ $kitchen = Kitchen.new "Кухня" do
     # Специи (рамочная дверь)
     cabinet 400, name: "Специи" do
       shelves [150, 300, 450]
-      door type: :frame     # рамка из массива + филёнка
+      doors 1, type: :frame # рамка из массива + филёнка
     end
     
     # Посуда
@@ -68,7 +77,7 @@ $kitchen = Kitchen.new "Кухня" do
   end
   
   # ═══════════ СТОЛЕШНИЦА ═══════════
-  countertop 38, overhang: 30
+  #countertop 38, overhang: 30
   
 end
 

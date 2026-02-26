@@ -170,9 +170,9 @@ end
 
 # === ТЕСТЫ CABINET С ДВЕРЬЮ ===
 
-test "Cabinet — door (1 дверь)" do
+test "Cabinet — doors 1 (одна дверь)" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   
   config = cab.instance_variable_get(:@doors_config)
   assert_equal 1, config[:count], "1 дверь"
@@ -180,15 +180,15 @@ end
 
 test "Cabinet — doors 2 (две створки)" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   
   config = cab.instance_variable_get(:@doors_config)
   assert_equal 2, config[:count], "2 двери"
 end
 
-test "Cabinet — door: build создаёт объект" do
+test "Cabinet — doors 1: build создаёт объект" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   assert_equal 1, cab.door_objects.length, "1 дверь создана"
@@ -196,15 +196,15 @@ end
 
 test "Cabinet — doors 2: build создаёт 2 объекта" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   cab.build
   
   assert_equal 2, cab.door_objects.length, "2 двери создано"
 end
 
-test "Cabinet — door: фасад в раскрое" do
+test "Cabinet — doors 1: фасад в раскрое" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   cuts = cab.all_cut_items
@@ -214,7 +214,7 @@ end
 
 test "Cabinet — doors 2: 2 фасада в раскрое" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   cab.build
   
   cuts = cab.all_cut_items
@@ -222,12 +222,12 @@ test "Cabinet — doors 2: 2 фасада в раскрое" do
   assert_equal 2, facades.length, "2 фасада в раскрое"
 end
 
-test "Cabinet — door: фасад покрывает боковины (cabinet_w - gap)" do
+test "Cabinet — doors 1: фасад покрывает боковины (cabinet_w - gap)" do
   # cabinet_w = 600, facade_gap = 3
   # facade_w = 600 - 3 = 597, facade_h = 700 - 3 = 697
   # CutItem: length = 697, width = 597
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   cuts = cab.all_cut_items
@@ -235,11 +235,11 @@ test "Cabinet — door: фасад покрывает боковины (cabinet_
   assert_equal 597, facades[0].width, "ширина фасада = cabinet_w - gap (597)"
 end
 
-test "Cabinet — door: высота фасада = side_height - gap" do
+test "Cabinet — doors 1: высота фасада = side_height - gap" do
   # side_height = 700 (no plinth/legs)
   # facade_h = 700 - 3 = 697
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   cuts = cab.all_cut_items
@@ -253,7 +253,7 @@ test "Cabinet — doors 2: ширины фасадов + зазоры = cabinet_
   # facade_h = 700 - 3 = 697
   # CutItem: length = 697, width = 397
   cab = SketchupFurniture::Assemblies::Cabinet.new(800, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   cab.build
   
   cuts = cab.all_cut_items
@@ -265,7 +265,7 @@ end
 
 test "Cabinet — doors 2: каждая створка ≈ половина ширины" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(800, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   cab.build
   
   cuts = cab.all_cut_items
@@ -277,9 +277,9 @@ test "Cabinet — doors 2: каждая створка ≈ половина ши
   end
 end
 
-test "Cabinet — door: петли автоматически left" do
+test "Cabinet — doors 1: петли автоматически left" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   assert_equal :left, cab.door_objects[0].hinge_side, "петли слева"
@@ -287,16 +287,16 @@ end
 
 test "Cabinet — doors 2: петли left + right" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(800, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   cab.build
   
   assert_equal :left, cab.door_objects[0].hinge_side, "левая дверь — петли слева"
   assert_equal :right, cab.door_objects[1].hinge_side, "правая дверь — петли справа"
 end
 
-test "Cabinet — door: нет фурнитуры" do
+test "Cabinet — doors 1: нет фурнитуры" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   hw = cab.all_hardware_items
@@ -304,14 +304,14 @@ test "Cabinet — door: нет фурнитуры" do
   assert_equal 0, hinges.length, "нет петель"
 end
 
-test "Cabinet — door с цоколем: высота учитывает plinth" do
+test "Cabinet — doors 1 с цоколем: высота учитывает plinth" do
   # height = 700, plinth = 100
   # PlinthSupport: side_height_reduction = 0, side_start_z = 0
   # side_height = 700 - 0 = 700
   # facade_h = 700 - 3 = 697
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
   cab.plinth(100)
-  cab.door
+  cab.doors 1
   cab.build
   
   cuts = cab.all_cut_items
@@ -320,7 +320,7 @@ test "Cabinet — door с цоколем: высота учитывает plinth
   assert_equal 697, facades[0].length, "высота фасада = 700 - 3"
 end
 
-test "Cabinet — door с ножками: высота фасада учитывает ножки" do
+test "Cabinet — doors 1 с ножками: высота фасада учитывает ножки" do
   # height = 700, legs = 100
   # LegsSupport: side_height_reduction = 100
   # side_height = 700 - 100 = 600
@@ -328,7 +328,7 @@ test "Cabinet — door с ножками: высота фасада учитыв
   # CutItem: length = max(597, 597) = 597, width = 597
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
   cab.legs(100)
-  cab.door
+  cab.doors 1
   cab.build
   
   cuts = cab.all_cut_items
@@ -338,10 +338,10 @@ test "Cabinet — door с ножками: высота фасада учитыв
   assert_equal 597, facades[0].width, "ширина фасада = 600 - 3 (с ножками)"
 end
 
-test "Cabinet — door + полки: можно комбинировать" do
+test "Cabinet — doors 1 + полки: можно комбинировать" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
   cab.shelves([200, 400])
-  cab.door
+  cab.doors 1
   cab.build
   
   assert_equal 1, cab.door_objects.length, "дверь создана"
@@ -350,9 +350,9 @@ test "Cabinet — door + полки: можно комбинировать" do
   assert_equal 2, shelves.length, "полки на месте"
 end
 
-test "Cabinet — door: open/close работает" do
+test "Cabinet — doors 1: open/close работает" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   d = cab.door_objects[0]
@@ -365,9 +365,9 @@ test "Cabinet — door: open/close работает" do
   assert !d.open?, "закрыта"
 end
 
-test "Cabinet — door с материалом MDF" do
+test "Cabinet — doors 1 с материалом MDF" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door(facade_material: :mdf_19)
+  cab.doors 1, facade_material: :mdf_19
   cab.build
   
   cuts = cab.all_cut_items
@@ -380,18 +380,18 @@ test "Cabinet — doors 2 зарегистрированы в DrawerTool" do
   SketchupFurniture::Tools::DrawerTool.clear
   
   cab = SketchupFurniture::Assemblies::Cabinet.new(800, 700, 300, name: "Шкаф")
-  cab.doors(2)
+  cab.doors 1s(2)
   cab.build
   
   assert_equal 2, SketchupFurniture::Tools::DrawerTool.count, "2 двери зарегистрированы"
 end
 
-test "Cabinet — door + drawer: обе зарегистрированы" do
+test "Cabinet — doors 1 + drawer: обе зарегистрированы" do
   SketchupFurniture::Tools::DrawerTool.clear
   
   # Нижний шкаф с ящиком + дверь верхнего
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   count_doors = SketchupFurniture::Tools::DrawerTool.count
@@ -605,7 +605,7 @@ end
 
 test "Cabinet — door type: :frame создаёт FrameDoor" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door(type: :frame)
+  cab.doors 1, type: :frame
   cab.build
   
   assert_equal 1, cab.door_objects.length, "1 дверь создана"
@@ -623,7 +623,7 @@ end
 
 test "Cabinet — door без type создаёт Door (solid)" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door
+  cab.doors 1
   cab.build
   
   d = cab.door_objects[0]
@@ -633,7 +633,7 @@ end
 
 test "Cabinet — frame door: 5 cut items в раскрое на дверь" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door(type: :frame)
+  cab.doors 1, type: :frame
   cab.build
   
   cuts = cab.all_cut_items
@@ -648,7 +648,7 @@ end
 
 test "Cabinet — frame door с custom параметрами" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
-  cab.door(type: :frame, frame_width: 40, panel_thickness: 8)
+  cab.doors 1, type: :frame, frame_width: 40, panel_thickness: 8
   cab.build
   
   d = cab.door_objects[0]
@@ -674,7 +674,7 @@ end
 test "Cabinet — frame door + полки совмещаются" do
   cab = SketchupFurniture::Assemblies::Cabinet.new(600, 700, 300, name: "Шкаф")
   cab.shelves([200, 400])
-  cab.door(type: :frame)
+  cab.doors 1, type: :frame
   cab.build
   
   assert_equal 1, cab.door_objects.length, "дверь создана"
