@@ -5,12 +5,15 @@ module SketchupFurniture
   module Assemblies
     module Builders
       class DoorBuilder
-        def initialize(doors_config:, width:, support:, cabinet_name:, blind_panel_config: nil)
+        def initialize(doors_config:, width:, support:, cabinet_name:, blind_panel_config: nil,
+                       zone_start: nil, zone_height: nil)
           @doors_config = doors_config
           @width = width
           @support = support
           @cabinet_name = cabinet_name
           @blind_panel_config = blind_panel_config
+          @zone_start = zone_start
+          @zone_height = zone_height
         end
 
         def build(context, ox, oy, oz, side_height)
@@ -19,6 +22,10 @@ module SketchupFurniture
           facade_gap = SketchupFurniture.config.facade_gap || 3
           count = @doors_config[:count]
           opts = @doors_config[:options] || {}
+
+          zone_start = @zone_start || 0.0
+          zone_height = @zone_height || side_height
+          return { cut_items: [], objects: [] } if zone_height <= facade_gap
 
           # Зона дверей: при глухой панели — только оставшаяся ширина
           door_area_start = facade_gap / 2.0
@@ -33,7 +40,7 @@ module SketchupFurniture
             end
           end
 
-          facade_h = side_height - facade_gap
+          facade_h = zone_height - facade_gap
           total_facade_w = door_area_width - count * facade_gap
 
           door_widths = if count == 1
@@ -49,7 +56,7 @@ module SketchupFurniture
           objects = []
 
           current_x = door_area_start + facade_gap / 2.0
-          support_z = @support.side_start_z
+          support_z = @support.side_start_z + zone_start
 
           door_widths.each_with_index do |dw, i|
             hinge = if count == 1

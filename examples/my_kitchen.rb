@@ -9,48 +9,43 @@ $kitchen = Kitchen.new "Кухня" do
   
   # ═══════════ НИЖНИЙ РЯД ═══════════
   lower depth: 560, height: 820 do
-    plinth 100
+    legs 50
     
-    # Мойка
-    cabinet 600, name: "Мойка" do
-      stretchers :sink      # царги на ребро
-      skip :bottom          # под мойкой нет дна
-    end
+
     
     # Ящики
     cabinet 400, name: "Ящики" do
       stretchers            # стандартные царги
-      drawers 3, height: 150, type: :frame
+      drawers [0, 150, 350], type: :frame
     end
     
     # Посуда
-    cabinet 600, name: "Посуда" do
+    cabinet 1100, name: "Посуда", height: 480 do
       stretchers            # стандартные царги
-      shelves [250, 500]
-      doors 2, type: :frame               # две створки
+      drawer_row count: 2, type: :frame
     end
     
+    # Столовые приборы (ящик + дверца)
+    cabinet 500, name: "Шкаф №2 Комбинированный" do
+      stretchers
+      # Нижняя часть — вертикальная колонка выдвижных ящиков
+      drawers 1, height: 250, type: :frame
+
+      # Разделительная полка над ящиком
+      separator_shelf
+
+      # Верхняя часть — дверца над ящиками
+      doors 1, over_drawers: true, type: :frame
+    end
+
     # Шкаф с глухой панелью (торцевой — панель слева, дверь справа)
-    cabinet 600, name: "У торца" do
+    cabinet 1400, name: "Шкаф 1 с мойкой" do
       stretchers
       shelves [250, 500]
-      blind_panel side: :left, width: 200   # глухая панель 200 мм слева
-      doors 1, type: :frame                              # одна дверь на оставшуюся ширину
+      blind_panel side: :left, width: 550   # глухая панель 200 мм слева
+      doors 2, type: :frame                              # одна дверь на оставшуюся ширину
     end
-    
-    # Столовые приборы (ряды ящиков)
-    cabinet 600, name: "Приборы" do
-      stretchers
-      drawer_row height: 100, count: 2   # два равных ящика + перегородка
-      drawer_row height: 200, count: 1   # сплошной
-      drawer_row height: 200, count: 1   # сплошной
-    end
-    
-    # Духовка
-    cabinet 600, name: "Духовка" do
-      stretchers            # стандартные царги
-      skip :back, :bottom   # ниша под встройку
-    end
+
   end
 
 
@@ -58,22 +53,17 @@ $kitchen = Kitchen.new "Кухня" do
   upper depth: 300, height: 600, at: 1400 do
     
     # Сушка над мойкой
-    cabinet 600, name: "Сушка" do
-      shelf 300
-      doors 2, type: :frame               # две створки
+    cabinet 500, name: "Сушка" do
+      shelves [150, 300]
+      doors 1, type: :frame               # две створки
     end
     
     # Специи (рамочная дверь)
-    cabinet 400, name: "Специи" do
-      shelves [150, 300, 450]
+    cabinet 500, name: "Специи" do
+      shelves [150, 300]
       doors 1, type: :frame # рамка из массива + филёнка
     end
     
-    # Посуда
-    cabinet 600, name: "Посуда верх" do
-      shelf 300
-      doors 2, type: :frame            # две створки
-    end
   end
   
   # ═══════════ СТОЛЕШНИЦА ═══════════

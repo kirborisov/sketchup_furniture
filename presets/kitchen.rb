@@ -78,15 +78,19 @@ module SketchupFurniture
       end
       
       # Шкаф (внутри lower/upper блока)
-      def cabinet(width, name: nil, **options, &block)
+      # width:   ширина шкафа (мм)
+      # height:  опциональная высота именно этого шкафа (по умолчанию = высота ряда)
+      def cabinet(width, name: nil, height: nil, **options, &block)
         case @_current_row
         when :lower
-          cab = Assemblies::Cabinet.new(width, @lower_height, @lower_depth, name: name, **options)
+          effective_height = height || @lower_height
+          cab = Assemblies::Cabinet.new(width, effective_height, @lower_depth, name: name, **options)
           apply_default_support(cab)
           cab.instance_eval(&block) if block_given?
           @lower_cabinets << cab
         when :upper
-          cab = Assemblies::Cabinet.new(width, @upper_height, @upper_depth, name: name, **options)
+          effective_height = height || @upper_height
+          cab = Assemblies::Cabinet.new(width, effective_height, @upper_depth, name: name, **options)
           cab.instance_eval(&block) if block_given?
           @upper_cabinets << cab
         else

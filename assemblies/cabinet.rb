@@ -27,6 +27,7 @@ module SketchupFurniture
         @blind_panel_config = nil
         @skip_parts = []
         @stretchers_config = nil
+        @separator_shelf = false
         @support = Components::Support::SidesSupport.new
         @_building_row = nil
       end
@@ -60,6 +61,12 @@ module SketchupFurniture
       
       def sections(*widths)
         @sections_config = widths.flatten
+        self
+      end
+
+      # Горизонтальная разделительная полка между ящиками и дверями
+      def separator_shelf
+        @separator_shelf = true
         self
       end
       
@@ -100,7 +107,7 @@ module SketchupFurniture
         self
       end
       
-      def drawer_row(height:, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false,
+      def drawer_row(height: nil, count: nil, slide: :ball_bearing, soft_close: false, draw_slides: false,
                      back_gap: 20, box_top_inset: 20, box_bottom_inset: 20,
                      type: nil, frame_width: nil, frame_thickness: nil, tenon: nil,
                      panel_gap: nil, panel_thickness: nil, groove_depth: nil, &block)
@@ -227,6 +234,7 @@ module SketchupFurniture
         
         # Ряды ящиков
         if @drawer_rows_config.any?
+          auto_fill_drawer_row_heights(inner_h_mm)
           row_builder = Builders::DrawerRowBuilder.new(
             drawer_rows_config: @drawer_rows_config,
             width: @width, depth: @depth,
@@ -236,6 +244,24 @@ module SketchupFurniture
           result = row_builder.build(@group, @context, ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm)
           merge_result(result)
           @drawer_objects.concat(result[:objects] || [])
+        end
+
+        # Разделительная полка над ящиками (если включена)
+        if @separator_shelf
+          shelf_z = separator_shelf_z(top_of_bottom, inner_h_mm)
+          if shelf_z
+            Primitives::Panel.horizontal(
+              @group,
+              x: ox + t, y: oy, z: oz + shelf_z.mm,
+              width: inner_w_mm.mm, depth: inner_d, thickness: t
+            )
+
+            @cut_items << Core::CutItem.new(
+              name: "Разделительная полка",
+              length: inner_w_mm, width: @depth - @back_thickness,
+              thickness: @thickness, material: "ЛДСП", cabinet: @name
+            )
+          end
         end
         
         # Глухая панель (до дверей, чтобы DoorBuilder знал зону дверей)
@@ -251,10 +277,32 @@ module SketchupFurniture
         
         # Двери (учитывают глухую панель при наличии)
         if @doors_config
+          zone_start = nil
+          zone_height = nil
+          opts = @doors_config[:options] || {}
+
+          # Специальный режим: двери над выдвижными ящиками
+          if opts[:over_drawers] && (!@drawers_config.empty? || @drawers_positions)
+            zone_info = doors_over_drawers_zone(
+              side_height: side_height,
+              top_of_bottom: top_of_bottom,
+              inner_h_mm: inner_h_mm
+            )
+            zone_start = zone_info[:zone_start]
+            zone_height = zone_info[:zone_height]
+          end
+
+          # Служебные ключи дверей не передаём в класс Door
+          cleaned_opts = opts.dup
+          cleaned_opts.delete(:over_drawers)
+          @doors_config = @doors_config.merge(options: cleaned_opts)
+
           door_builder = Builders::DoorBuilder.new(
             doors_config: @doors_config, width: @width,
             support: @support, cabinet_name: @name,
-            blind_panel_config: @blind_panel_config
+            blind_panel_config: @blind_panel_config,
+            zone_start: zone_start,
+            zone_height: zone_height
           )
           result = door_builder.build(@context, ox, oy, oz, side_height)
           merge_result(result)
@@ -277,6 +325,117 @@ module SketchupFurniture
       def merge_result(result)
         @cut_items.concat(result[:cut_items] || [])
         @hardware_items.concat(result[:hardware_items] || [])
+      end
+
+      # Если в drawer_row не указана высота, можно заполнить её автоматически.
+      # Простое правило:
+      # - если ровно один ряд и height не задан — он занимает всю внутреннюю высоту;
+      # - если рядов несколько, а часть без height — оставшуюся высоту делим между ними поровну.
+      def auto_fill_drawer_row_heights(inner_h_mm)
+        return if @drawer_rows_config.empty?
+
+        rows_without_height = @drawer_rows_config.select { |r| r[:height].nil? }
+        return if rows_without_height.empty?
+
+        if @drawer_rows_config.length == 1
+          @drawer_rows_config[0][:height] = inner_h_mm
+          return
+        end
+
+        explicit_sum = @drawer_rows_config.sum { |r| r[:height] || 0 }
+        remaining = inner_h_mm - explicit_sum
+        return if remaining <= 0
+
+        auto_rows = rows_without_height
+        share = (remaining.to_f / auto_rows.length).floor
+        auto_rows.each { |r| r[:height] = share }
+
+        used = explicit_sum + share * auto_rows.length
+        delta = inner_h_mm - used
+        auto_rows.last[:height] += delta if delta > 0
+      end
+
+      # Расчёт вертикальной зоны фасадов дверей в режиме over_drawers
+      def doors_over_drawers_zone(side_height:, top_of_bottom:, inner_h_mm:)
+        configs =
+          if @drawers_positions
+            resolve_drawer_configs_for_positions(inner_h_mm)
+          else
+            @drawers_config
+          end
+
+        return { zone_start: nil, zone_height: nil } if configs.empty?
+
+        total_drawers_h = configs.sum { |c| c[:height] }
+        facade_gap = SketchupFurniture.config.facade_gap || 3
+
+        # Базовый отступ от низа боковин до верха ящиков
+        base_offset = (top_of_bottom - @support.side_start_z) + total_drawers_h
+
+        # При separator_shelf фасад двери должен закрывать кромку полки:
+        # нижняя кромка фасада совпадает с верхом полки.
+        relative_start =
+          if @separator_shelf
+            base_offset - facade_gap / 2.0
+          else
+            base_offset + facade_gap
+          end
+
+        zone_height = side_height - relative_start
+
+        if zone_height <= facade_gap
+          { zone_start: nil, zone_height: nil }
+        else
+          { zone_start: relative_start, zone_height: zone_height }
+        end
+      end
+
+      # Локальное разрешение конфигов ящиков по positions (аналог DrawerBuilder#resolve_drawer_positions),
+      # только для вычисления высот, без модификации @drawers_config.
+      def resolve_drawer_configs_for_positions(inner_h_mm)
+        return [] unless @drawers_positions
+
+        positions = @drawers_positions
+        opts = @drawers_options
+
+        configs = []
+
+        positions.each_with_index do |pos, i|
+          h = if i < positions.length - 1
+            positions[i + 1] - pos
+          else
+            inner_h_mm - pos
+          end
+
+          configs << {
+            height: h,
+            slide: opts[:slide], soft_close: opts[:soft_close],
+            draw_slides: opts[:draw_slides],
+            back_gap: opts[:back_gap] || 20,
+            box_top_inset: opts[:box_top_inset] || 20,
+            box_bottom_inset: opts[:box_bottom_inset] || 20,
+            type: opts[:type], frame_width: opts[:frame_width], frame_thickness: opts[:frame_thickness],
+            tenon: opts[:tenon], panel_gap: opts[:panel_gap], panel_thickness: opts[:panel_thickness],
+            groove_depth: opts[:groove_depth]
+          }
+        end
+
+        configs
+      end
+
+      # Высота разделительной полки над ящиками (в мм от низа боковин)
+      def separator_shelf_z(top_of_bottom, inner_h_mm)
+        configs =
+          if @drawers_positions
+            resolve_drawer_configs_for_positions(inner_h_mm)
+          else
+            @drawers_config
+          end
+
+        return nil if configs.empty?
+
+        total_drawers_h = configs.sum { |c| c[:height] }
+        top_of_bottom + total_drawers_h
       end
     end
   end
