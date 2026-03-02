@@ -189,9 +189,10 @@ module SketchupFurniture
         inner_h = inner_h_mm.mm
         inner_d = inner_d_mm.mm
         
-        ox = (@context&.x || 0).mm
-        oy = (@context&.y || 0).mm
-        oz = (@context&.z || 0).mm
+        # Локальные координаты (группа уже позиционирована трансформацией)
+        ox = 0
+        oy = 0
+        oz = 0
         
         # Корпус (боковины, верх/дно, задник, царги)
         body = Builders::BodyBuilder.new(

@@ -21,7 +21,6 @@ module SketchupFurniture
       def column(width, name: nil, &block)
         col = Containers::Column.new(width, name: name)
         col.instance_variable_set(:@depth, @depth)
-        col.at_x(@width)  # смещение = текущая ширина
         
         col.instance_eval(&block) if block_given?
         
@@ -38,8 +37,30 @@ module SketchupFurniture
         @context = context || Core::Context.new
         @group = create_group(@name)
         
+        # Позиционируем группу шкафа трансформацией
+        cx = @context.x || 0
+        cy = @context.y || 0
+        cz = @context.z || 0
+        @world_x = @context.world_x || cx
+        @world_y = @context.world_y || cy
+        @world_z = @context.world_z || cz
+        if cx != 0 || cy != 0 || cz != 0
+          tr = Geom::Transformation.new([cx.mm, cy.mm, cz.mm])
+          @group.transformation = tr
+        end
+        
+        # Переключаемся на локальные координаты
+        @context = Core::Context.new(
+          x: 0, y: 0, z: 0, parent: @group, config: @context.config,
+          world_x: @world_x, world_y: @world_y, world_z: @world_z
+        )
+        
+        # Колонны — каждая позиционируется через offset
+        x_pos = 0
         @columns.each do |col|
-          col.build(@context)
+          col_context = @context.offset(dx: x_pos)
+          col.build(col_context)
+          x_pos += col.width
         end
         
         # Собираем раскрой и фурнитуру

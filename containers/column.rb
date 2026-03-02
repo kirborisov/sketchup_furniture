@@ -55,7 +55,7 @@ module SketchupFurniture
         z_pos = 0
         
         @modules.each do |mod|
-          mod_context = @context.offset(dx: @x_offset, dz: z_pos)
+          mod_context = @context.offset(dz: z_pos)
           mod.build(mod_context)
           z_pos += mod.height
         end

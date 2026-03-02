@@ -138,6 +138,24 @@ module SketchupFurniture
         @context = context || Core::Context.new
         @group = create_group(@name)
         
+        # Позиционируем группу кухни трансформацией
+        cx = @context.x || 0
+        cy = @context.y || 0
+        cz = @context.z || 0
+        @world_x = @context.world_x || cx
+        @world_y = @context.world_y || cy
+        @world_z = @context.world_z || cz
+        if cx != 0 || cy != 0 || cz != 0
+          tr = Geom::Transformation.new([cx.mm, cy.mm, cz.mm])
+          @group.transformation = tr
+        end
+        
+        # Переключаемся на локальные координаты
+        @context = Core::Context.new(
+          x: 0, y: 0, z: 0, parent: @group, config: @context.config,
+          world_x: @world_x, world_y: @world_y, world_z: @world_z
+        )
+        
         build_lower_row
         build_countertop
         build_upper_row
@@ -238,32 +256,29 @@ module SketchupFurniture
           return nil
         end
 
-        # Позиция и родитель — по первой найденной
         group = groups.first
-        bounds = group.bounds
-        pt = bounds.min
+
+        # Позиция из трансформации группы (локальная внутри родителя)
+        tr = group.transformation
+        origin = tr.origin
         inch_to_mm = 25.4
-        x_mm = pt.x * inch_to_mm
-        y_mm = pt.y * inch_to_mm
-        z_mm = pt.z * inch_to_mm
+        x_mm = origin.x.to_f * inch_to_mm
+        y_mm = origin.y.to_f * inch_to_mm
+        z_mm = origin.z.to_f * inch_to_mm
 
-        parent_group = group.parent.respond_to?(:parent) && group.parent.parent.is_a?(Sketchup::Group) ? group.parent.parent : nil
-
-        # Собрать все группы для удаления: по имени + все, чьи bounds внутри шкафа (ящики/двери — соседи корпуса)
-        to_erase = groups.dup
-        groups.each do |cab_group|
-          next unless cab_group.valid?
-          to_erase.concat(groups_inside_bounds(cab_group.parent.entities, cab_group.bounds, exclude: groups))
+        # Родительская группа (кухня)
+        parent_group = nil
+        if group.parent.respond_to?(:parent)
+          owner = group.parent.parent
+          parent_group = owner if owner.is_a?(Sketchup::Group)
         end
-        to_erase.uniq!
 
         # Удалить размеры, попадающие в bounds этого шкафа
         @dimensions.remove_dimensions_in_bounds(group.bounds) if group.valid?
 
-        to_erase.each do |g|
-          Tools::DrawerTool.unregister_group_and_children(g)
-          g.erase! if g.valid?
-        end
+        # Ящики и двери внутри группы — удаляются автоматически вместе с ней
+        Tools::DrawerTool.unregister_group_and_children(group)
+        group.erase! if group.valid?
 
         cab.clear_build_artifacts
         cab_context = Core::Context.new(
@@ -272,7 +287,7 @@ module SketchupFurniture
           config: SketchupFurniture.config
         )
         new_group = cab.build(cab_context)
-        # Очистить невалидные записи и переактивировать инструмент — двойной клик снова работает
+        # Очистить невалидные записи и переактивировать инструмент
         Tools::DrawerTool.unregister_invalid
         activate_drawer_tool
         new_group

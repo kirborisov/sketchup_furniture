@@ -4,15 +4,20 @@
 module SketchupFurniture
   module Core
     class Context
-      attr_accessor :x, :y, :z           # позиция
+      attr_accessor :x, :y, :z           # локальная позиция (внутри parent)
+      attr_accessor :world_x, :world_y, :world_z  # кумулятивная мировая позиция
       attr_accessor :rotation            # поворот (0, 90, 180, 270)
       attr_accessor :parent_group        # родительская группа SketchUp
       attr_accessor :config              # ссылка на конфигурацию
       
-      def initialize(x: 0, y: 0, z: 0, rotation: 0, parent: nil, config: nil)
+      def initialize(x: 0, y: 0, z: 0, rotation: 0, parent: nil, config: nil,
+                     world_x: nil, world_y: nil, world_z: nil)
         @x = x
         @y = y
         @z = z
+        @world_x = world_x || x
+        @world_y = world_y || y
+        @world_z = world_z || z
         @rotation = rotation
         @parent_group = parent
         @config = config || SketchupFurniture.config
@@ -26,7 +31,10 @@ module SketchupFurniture
           z: @z + dz,
           rotation: @rotation,
           parent: @parent_group,
-          config: @config
+          config: @config,
+          world_x: (@world_x || @x) + dx,
+          world_y: (@world_y || @y) + dy,
+          world_z: (@world_z || @z) + dz
         )
       end
       

@@ -78,10 +78,10 @@ module SketchupFurniture
       
       # Габаритные размеры
       def add_overall_dimensions(entities, component)
-        # Получаем позицию и размеры в мм
-        cx = component.context&.x || 0
-        cy = component.context&.y || 0
-        cz = component.context&.z || 0
+        # Мировая позиция для размерных линий
+        cx = component.respond_to?(:world_x) ? (component.world_x || 0) : (component.context&.x || 0)
+        cy = component.respond_to?(:world_y) ? (component.world_y || 0) : (component.context&.y || 0)
+        cz = component.respond_to?(:world_z) ? (component.world_z || 0) : (component.context&.z || 0)
         
         cw = component.width
         ch = component.height
@@ -129,9 +129,9 @@ module SketchupFurniture
         end
         return unless component.respond_to?(:columns) && component.columns.any?
         
-        x = (component.context&.x || 0).mm
-        y = (component.context&.y || 0).mm
-        z = (component.context&.z || 0).mm
+        x = (component.respond_to?(:world_x) ? (component.world_x || 0) : (component.context&.x || 0)).mm
+        y = (component.respond_to?(:world_y) ? (component.world_y || 0) : (component.context&.y || 0)).mm
+        z = (component.respond_to?(:world_z) ? (component.world_z || 0) : (component.context&.z || 0)).mm
         h = component.height.mm
         
         offset = OFFSET.mm * 0.5
@@ -169,9 +169,9 @@ module SketchupFurniture
       
       # Размеры по корпусам кухни (нижний и верхний ряд)
       def add_kitchen_cabinet_dimensions(entities, kitchen)
-        ox = (kitchen.context&.x || 0).mm
-        oy = (kitchen.context&.y || 0).mm
-        oz = (kitchen.context&.z || 0).mm
+        ox = (kitchen.respond_to?(:world_x) ? (kitchen.world_x || 0) : (kitchen.context&.x || 0)).mm
+        oy = (kitchen.respond_to?(:world_y) ? (kitchen.world_y || 0) : (kitchen.context&.y || 0)).mm
+        oz = (kitchen.respond_to?(:world_z) ? (kitchen.world_z || 0) : (kitchen.context&.z || 0)).mm
         offset = OFFSET.mm * 0.5
         
         # Нижний ряд — ширины корпусов (спереди снизу)
@@ -225,9 +225,9 @@ module SketchupFurniture
       def add_cabinet_shelf_dimensions(entities, cabinet)
         return if cabinet.shelves_config.empty?
         
-        x = (cabinet.context&.x || 0).mm
-        y = (cabinet.context&.y || 0).mm
-        z = (cabinet.context&.z || 0).mm
+        x = (cabinet.respond_to?(:world_x) ? (cabinet.world_x || 0) : (cabinet.context&.x || 0)).mm
+        y = (cabinet.respond_to?(:world_y) ? (cabinet.world_y || 0) : (cabinet.context&.y || 0)).mm
+        z = (cabinet.respond_to?(:world_z) ? (cabinet.world_z || 0) : (cabinet.context&.z || 0)).mm
         d = cabinet.depth.mm
         
         offset = OFFSET.mm * 0.3

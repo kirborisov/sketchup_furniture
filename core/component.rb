@@ -6,6 +6,8 @@ module SketchupFurniture
     class Component
       attr_reader :width, :height, :depth, :name
       attr_reader :cut_items, :hardware_items
+      attr_reader :group
+      attr_reader :world_x, :world_y, :world_z
       attr_accessor :context
       
       def initialize(width, height, depth, name: nil)
@@ -19,6 +21,9 @@ module SketchupFurniture
         @hardware_items = []
         @children = []
         @group = nil
+        @world_x = 0
+        @world_y = 0
+        @world_z = 0
       end
       
       # === ПОСТРОЕНИЕ ===
@@ -27,6 +32,30 @@ module SketchupFurniture
       def build(context = nil)
         @context = context || Context.new
         @group = create_group(@name || self.class.name.split('::').last)
+        
+        # Локальная позиция (для трансформации группы)
+        cx = @context.x || 0
+        cy = @context.y || 0
+        cz = @context.z || 0
+        
+        # Мировая позиция (для размерных линий)
+        @world_x = @context.world_x || cx
+        @world_y = @context.world_y || cy
+        @world_z = @context.world_z || cz
+        
+        # Позиционируем группу трансформацией
+        if cx != 0 || cy != 0 || cz != 0
+          tr = Geom::Transformation.new([cx.mm, cy.mm, cz.mm])
+          @group.transformation = tr
+        end
+        
+        # Переключаемся на локальные координаты (0,0,0) — геометрия внутри группы
+        @context = Context.new(
+          x: 0, y: 0, z: 0,
+          parent: @group,
+          config: @context.config,
+          world_x: @world_x, world_y: @world_y, world_z: @world_z
+        )
         
         build_geometry
         build_children
