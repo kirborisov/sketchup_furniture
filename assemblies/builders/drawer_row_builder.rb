@@ -7,7 +7,8 @@ module SketchupFurniture
     module Builders
       class DrawerRowBuilder
         def initialize(drawer_rows_config:, width:, depth:, thickness:, back_thickness:,
-                       support:, skip_parts:, cabinet_name:)
+                       support:, skip_parts:, cabinet_name:,
+                       facade_zone_bottom: nil, facade_zone_height: nil)
           @drawer_rows_config = drawer_rows_config
           @width = width
           @depth = depth
@@ -16,6 +17,9 @@ module SketchupFurniture
           @support = support
           @skip_parts = skip_parts
           @cabinet_name = cabinet_name
+          @facade_zone_bottom = facade_zone_bottom
+          @facade_zone_height = facade_zone_height
+          @overlay = @facade_zone_bottom && @facade_zone_height && @facade_zone_height > 0
         end
 
         def build(group, context, ox, oy, oz, inner_w_mm, inner_d_mm)
@@ -36,24 +40,45 @@ module SketchupFurniture
           panels_between = (0...num_rows - 1).map { |i| row_partitions[i] > 0 || row_partitions[i + 1] > 0 }
           need_top_shelf = !build_part?(:top) && row_partitions[-1] > 0
 
-          # Facade heights (proportional distribution)
-          total_h = @drawer_rows_config.sum { |r| r[:height] }
-          panels_between.each { |p| total_h += t if p }
-          sum_row_h = @drawer_rows_config.sum { |r| r[:height] }.to_f
-          total_facade_h = total_h - num_rows * facade_gap
+          rows_base_z = @support.bottom_z + t
 
-          facade_heights = @drawer_rows_config.map { |r| (r[:height] / sum_row_h * total_facade_h).round }
-          facade_heights[-1] = total_facade_h - facade_heights[0..-2].sum
+          if @overlay
+            # Фасады по всей фасадной зоне корпуса (прикрывают дно/верх с зазором facade_gap/2)
+            total_facade_h = @facade_zone_height - num_rows * facade_gap
+            sum_row_h = @drawer_rows_config.sum { |r| r[:height] }.to_f
+            sum_row_h = 1.0 if sum_row_h <= 0
+            facade_heights = @drawer_rows_config.map { |r| (r[:height] / sum_row_h * total_facade_h).round }
+            facade_heights[-1] = total_facade_h - facade_heights[0..-2].sum
 
-          # Facade Z offsets
-          facade_z_offsets = []
-          acc_facade_z = 0
-          acc_box_z = 0
-          @drawer_rows_config.each_with_index do |row, i|
-            facade_z_offsets[i] = acc_box_z - acc_facade_z
-            acc_facade_z += facade_heights[i] + facade_gap
-            acc_box_z += row[:height]
-            acc_box_z += t if i < num_rows - 1 && panels_between[i]
+            facade_z_offsets = []
+            acc_box_z = 0
+            sum_facade_prev = 0.0
+            @drawer_rows_config.each_with_index do |row, i|
+              # Нужно: (rows_base_z + acc_box_z) - facade_z_offsets[i] == @facade_zone_bottom + i*facade_gap + sum_facade_prev
+              facade_z_offsets[i] = (rows_base_z + acc_box_z) - (@facade_zone_bottom + i * facade_gap + sum_facade_prev)
+              sum_facade_prev += facade_heights[i]
+              acc_box_z += row[:height]
+              acc_box_z += t if i < num_rows - 1 && panels_between[i]
+            end
+          else
+            # Классическое поведение: фасады внутри внутренней высоты
+            total_h = @drawer_rows_config.sum { |r| r[:height] }
+            panels_between.each { |p| total_h += t if p }
+            sum_row_h = @drawer_rows_config.sum { |r| r[:height] }.to_f
+            sum_row_h = 1.0 if sum_row_h <= 0
+            total_facade_h = total_h - num_rows * facade_gap
+            facade_heights = @drawer_rows_config.map { |r| (r[:height] / sum_row_h * total_facade_h).round }
+            facade_heights[-1] = total_facade_h - facade_heights[0..-2].sum
+
+            facade_z_offsets = []
+            acc_facade_z = 0
+            acc_box_z = 0
+            @drawer_rows_config.each_with_index do |row, i|
+              facade_z_offsets[i] = acc_box_z - acc_facade_z
+              acc_facade_z += facade_heights[i] + facade_gap
+              acc_box_z += row[:height]
+              acc_box_z += t if i < num_rows - 1 && panels_between[i]
+            end
           end
 
           current_z = 0

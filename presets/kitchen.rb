@@ -16,7 +16,7 @@
 module SketchupFurniture
   module Presets
     class Kitchen < Core::Component
-      attr_reader :lower_cabinets, :upper_cabinets
+      attr_reader :lower_cabinets, :upper_cabinets, :lower_depth, :upper_depth
       
       def initialize(name = "Кухня", &block)
         super(0, 0, 0, name: name)
@@ -80,17 +80,20 @@ module SketchupFurniture
       # Шкаф (внутри lower/upper блока)
       # width:   ширина шкафа (мм)
       # height:  опциональная высота именно этого шкафа (по умолчанию = высота ряда)
-      def cabinet(width, name: nil, height: nil, **options, &block)
+      # depth:   опциональная глубина этого шкафа (по умолчанию = глубина ряда)
+      def cabinet(width, name: nil, height: nil, depth: nil, **options, &block)
         case @_current_row
         when :lower
           effective_height = height || @lower_height
-          cab = Assemblies::Cabinet.new(width, effective_height, @lower_depth, name: name, **options)
+          effective_depth = depth || @lower_depth
+          cab = Assemblies::Cabinet.new(width, effective_height, effective_depth, name: name, **options)
           apply_default_support(cab)
           cab.instance_eval(&block) if block_given?
           @lower_cabinets << cab
         when :upper
           effective_height = height || @upper_height
-          cab = Assemblies::Cabinet.new(width, effective_height, @upper_depth, name: name, **options)
+          effective_depth = depth || @upper_depth
+          cab = Assemblies::Cabinet.new(width, effective_height, effective_depth, name: name, **options)
           cab.instance_eval(&block) if block_given?
           @upper_cabinets << cab
         else

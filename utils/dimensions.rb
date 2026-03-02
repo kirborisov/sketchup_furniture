@@ -96,8 +96,12 @@ module SketchupFurniture
         puts "  + Глубина: #{cd} мм"
       end
       
-      # Размеры секций/колонн
+      # Размеры секций/колонн (гардероб) или по корпусам (кухня)
       def add_section_dimensions(entities, component)
+        if component.respond_to?(:lower_cabinets) && (component.lower_cabinets.any? || component.upper_cabinets.any?)
+          add_kitchen_cabinet_dimensions(entities, component)
+          return
+        end
         return unless component.respond_to?(:columns) && component.columns.any?
         
         x = (component.context&.x || 0).mm
@@ -135,6 +139,43 @@ module SketchupFurniture
           end
           
           x_pos += col_w
+        end
+      end
+      
+      # Размеры по корпусам кухни (нижний и верхний ряд)
+      def add_kitchen_cabinet_dimensions(entities, kitchen)
+        ox = (kitchen.context&.x || 0).mm
+        oy = (kitchen.context&.y || 0).mm
+        oz = (kitchen.context&.z || 0).mm
+        offset = OFFSET.mm * 0.5
+        
+        # Нижний ряд — ширины корпусов (спереди снизу)
+        x_pos = ox
+        kitchen.lower_cabinets.each do |cab|
+          cw = cab.width.mm
+          z_low = oz
+          add_dimension(entities,
+            [x_pos, oy - offset, z_low],
+            [x_pos + cw, oy - offset, z_low],
+            [0, -offset * 0.5, -offset * 0.5]
+          )
+          x_pos += cw
+        end
+        
+        # Верхний ряд — ширины корпусов (если есть)
+        return unless kitchen.upper_cabinets.any?
+        
+        upper_z = kitchen.instance_variable_get(:@upper_z) || 1400
+        y_upper = oy + (kitchen.lower_depth - kitchen.upper_depth).mm
+        x_pos = ox
+        kitchen.upper_cabinets.each do |cab|
+          cw = cab.width.mm
+          add_dimension(entities,
+            [x_pos, y_upper - offset, (oz + upper_z).mm],
+            [x_pos + cw, y_upper - offset, (oz + upper_z).mm],
+            [0, -offset * 0.5, offset * 0.5]
+          )
+          x_pos += cw
         end
       end
       

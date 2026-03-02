@@ -10,6 +10,7 @@ module SketchupFurniture
       attr_accessor :cut_gap, :shelf_inset
       attr_accessor :facade_gap
       attr_accessor :frame_thickness
+      attr_accessor :drawer_row_overlay
       
       def initialize
         # Материалы
@@ -37,6 +38,7 @@ module SketchupFurniture
         # Фасады
         @facade_gap = 3               # зазор между фасадами (мм)
         @frame_thickness = 20         # толщина рамочного фасада (мм)
+        @drawer_row_overlay = false   # true: фасады рядов ящиков прикрывают дно/верх с зазором
         
         # Раскрой
         @cut_gap = 4                  # зазор на пропил

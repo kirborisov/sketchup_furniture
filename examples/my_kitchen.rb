@@ -5,23 +5,37 @@
 #   load "путь/sketchup_furniture/sketchup_furniture.rb"
 #   load "путь/sketchup_furniture/examples/my_kitchen.rb"
 
+# Фасады рядов ящиков прикрывают дно и верх корпуса с зазором facade_gap/2
+SketchupFurniture.config.drawer_row_overlay = true
+
+# При повторном load удаляем только старые группы кухни (корневые группы с именем "Кухня")
+model = Sketchup.active_model
+to_erase = model.entities.to_a.select { |e| e.is_a?(Sketchup::Group) && e.name == "Кухня" }
+to_erase.each { |g| g.erase! if g.valid? }
+
 $kitchen = Kitchen.new "Кухня" do
   
   # ═══════════ НИЖНИЙ РЯД ═══════════
-  lower depth: 560, height: 820 do
-    legs 50
+  lower depth: 560, height: 850 do
+    legs 0
     
 
-    
+    # Нижний ящик большой, два верхних одинаковые; глубина 400 мм
+    cabinet 700, name: "Шкаф 5, ящики", depth: 400 do
+      stretchers
+      drawers [0, 400, 567], type: :frame
+    end
+
     # Ящики
-    cabinet 400, name: "Ящики" do
-      stretchers            # стандартные царги
-      drawers [0, 150, 350], type: :frame
+    cabinet 800, name: "Шкаф 4" do
+      stretchers
+      shelves [250]
+      blind_panel side: :left, width: 400   # глухая панель 200 мм слева
+      doors 1, type: :frame                              # одна дверь на оставшуюся ширину
     end
     
     # Посуда
-    cabinet 1100, name: "Посуда", height: 480 do
-      stretchers            # стандартные царги
+    cabinet 1100, name: "Шкаф 3 (под окном)", height: 480 do
       drawer_row count: 2, type: :frame
     end
     
@@ -71,7 +85,7 @@ $kitchen = Kitchen.new "Кухня" do
   
 end
 
-# Строим
+# Строим кухню
 $kitchen.build
 
 # Выводим результаты
@@ -79,5 +93,9 @@ $kitchen.summary
 $kitchen.print_cut_list
 $kitchen.print_hardware_list
 
-# Активируем инструмент ящиков
+# Размеры: общие габариты + по каждому корпусу (ширины нижнего и верхнего ряда)
+# Режимы: :overview — только общие, :sections — общие + по корпусам, :detailed — ещё полки
+$kitchen.show_dimensions(:sections)
+
+# Активируем инструмент ящиков (двойной клик)
 $kitchen.activate_drawer_tool

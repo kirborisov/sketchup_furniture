@@ -33,10 +33,47 @@ module SketchupFurniture
           facade_w = @width - facade_gap
           facade_x_off = @thickness - facade_gap / 2.0
 
+          overlay = SketchupFurniture.config.drawer_row_overlay
+
           start_z = if !@skip_parts.include?(:bottom)
             @support.bottom_z + @thickness
           else
             @support.bottom_z
+          end
+
+          facade_heights = nil
+          facade_z_offsets = nil
+
+          if overlay
+            side_height = @height - @support.side_height_reduction
+            facade_zone_bottom = @support.side_start_z + facade_gap / 2.0
+            facade_zone_height = side_height - facade_gap
+
+            if facade_zone_height > 0
+              num = @drawers_config.length
+              total_facade_h = facade_zone_height - (num - 1) * facade_gap
+              total_facade_h = 0 if total_facade_h < 0
+
+              sum_slot_h = @drawers_config.sum { |cfg| cfg[:height].to_f }
+              sum_slot_h = 1.0 if sum_slot_h <= 0
+
+              facade_heights = @drawers_config.map do |cfg|
+                (cfg[:height].to_f / sum_slot_h * total_facade_h).round
+              end
+              if num > 0
+                facade_heights[-1] = total_facade_h - facade_heights[0..-2].sum
+              end
+
+              facade_z_offsets = []
+              sum_facade_prev = 0.0
+
+              @drawers_config.each_with_index do |_cfg, i|
+                slot_bottom = start_z + drawer_z_offset(i)
+                desired_bottom = facade_zone_bottom + i * facade_gap + sum_facade_prev
+                facade_z_offsets[i] = slot_bottom - desired_bottom
+                sum_facade_prev += facade_heights[i]
+              end
+            end
           end
 
           @drawers_config.each_with_index do |cfg, i|
@@ -51,6 +88,8 @@ module SketchupFurniture
               back_gap: cfg[:back_gap] || 20,
               facade_gap: facade_gap,
               facade_width: facade_w,
+              facade_height: (facade_heights && facade_heights[i]) || nil,
+              facade_z_offset: (facade_z_offsets && facade_z_offsets[i]) || 0,
               facade_x_offset: facade_x_off,
               box_top_inset: cfg[:box_top_inset] || 20,
               box_bottom_inset: cfg[:box_bottom_inset] || 20,

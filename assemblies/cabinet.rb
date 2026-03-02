@@ -235,11 +235,17 @@ module SketchupFurniture
         # Ряды ящиков
         if @drawer_rows_config.any?
           auto_fill_drawer_row_heights(inner_h_mm)
+          facade_gap = SketchupFurniture.config.facade_gap || 3
+          overlay = SketchupFurniture.config.drawer_row_overlay
+          facade_zone_bottom = overlay ? (@support.side_start_z + facade_gap / 2.0) : nil
+          facade_zone_height = overlay ? (side_height - facade_gap) : nil
           row_builder = Builders::DrawerRowBuilder.new(
             drawer_rows_config: @drawer_rows_config,
             width: @width, depth: @depth,
             thickness: @thickness, back_thickness: @back_thickness,
-            support: @support, skip_parts: @skip_parts, cabinet_name: @name
+            support: @support, skip_parts: @skip_parts, cabinet_name: @name,
+            facade_zone_bottom: facade_zone_bottom,
+            facade_zone_height: facade_zone_height
           )
           result = row_builder.build(@group, @context, ox, oy, oz + bottom_offset + t, inner_w_mm, inner_d_mm)
           merge_result(result)
