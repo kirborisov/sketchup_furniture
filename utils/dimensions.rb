@@ -48,7 +48,32 @@ module SketchupFurniture
         end
         @dimension_entities = []
       end
-      
+
+      # Удалить размеры, попадающие в bbox (для пересборки одного шкафа)
+      # bounds — Geom::BoundingBox в координатах модели (дюймы)
+      def remove_dimensions_in_bounds(bounds)
+        return if bounds.nil?
+        margin = 12.0  # дюймов, запас (размерные линии смещены от объекта)
+        bmin = bounds.min
+        bmax = bounds.max
+        tol = margin
+        to_remove = []
+        @dimension_entities.each do |dim|
+          next unless dim.valid?
+          next unless dim.respond_to?(:bounds)
+          dmin = dim.bounds.min
+          dmax = dim.bounds.max
+          next unless dmin.x >= bmin.x - tol && dmax.x <= bmax.x + tol &&
+                      dmin.y >= bmin.y - tol && dmax.y <= bmax.y + tol &&
+                      dmin.z >= bmin.z - tol && dmax.z <= bmax.z + tol
+          to_remove << dim
+        end
+        to_remove.each do |dim|
+          dim.erase! if dim.valid?
+          @dimension_entities.delete(dim)
+        end
+      end
+
       private
       
       # Габаритные размеры

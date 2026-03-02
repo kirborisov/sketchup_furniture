@@ -221,9 +221,116 @@ module SketchupFurniture
         all_drawers.each(&:close)
         puts "Закрыто ящиков: #{all_drawers.length}"
       end
-      
+
+      # Пересобрать один шкаф по имени (без пересборки всей кухни)
+      # name — имя шкафа (например "Шкаф 5, ящики")
+      # Возвращает новую группу шкафа или nil, если не найден
+      def rebuild_cabinet(name)
+        cab = find_cabinet_by_name(name)
+        unless cab
+          puts "Шкаф '#{name}' не найден в описании кухни"
+          return nil
+        end
+
+        groups = find_all_groups_by_name(Sketchup.active_model.entities, name)
+        if groups.empty?
+          puts "Группа шкафа '#{name}' не найдена в модели"
+          return nil
+        end
+
+        # Позиция и родитель — по первой найденной
+        group = groups.first
+        bounds = group.bounds
+        pt = bounds.min
+        inch_to_mm = 25.4
+        x_mm = pt.x * inch_to_mm
+        y_mm = pt.y * inch_to_mm
+        z_mm = pt.z * inch_to_mm
+
+        parent_group = group.parent.respond_to?(:parent) && group.parent.parent.is_a?(Sketchup::Group) ? group.parent.parent : nil
+
+        # Собрать все группы для удаления: по имени + все, чьи bounds внутри шкафа (ящики/двери — соседи корпуса)
+        to_erase = groups.dup
+        groups.each do |cab_group|
+          next unless cab_group.valid?
+          to_erase.concat(groups_inside_bounds(cab_group.parent.entities, cab_group.bounds, exclude: groups))
+        end
+        to_erase.uniq!
+
+        # Удалить размеры, попадающие в bounds этого шкафа
+        @dimensions.remove_dimensions_in_bounds(group.bounds) if group.valid?
+
+        to_erase.each do |g|
+          Tools::DrawerTool.unregister_group_and_children(g)
+          g.erase! if g.valid?
+        end
+
+        cab.clear_build_artifacts
+        cab_context = Core::Context.new(
+          x: x_mm, y: y_mm, z: z_mm,
+          parent: parent_group,
+          config: SketchupFurniture.config
+        )
+        new_group = cab.build(cab_context)
+        # Очистить невалидные записи и переактивировать инструмент — двойной клик снова работает
+        Tools::DrawerTool.unregister_invalid
+        activate_drawer_tool
+        new_group
+      end
+
       private
       
+      # Найти шкаф по имени в lower/upper
+      def find_cabinet_by_name(name)
+        (@lower_cabinets + @upper_cabinets).find { |c| c.name == name }
+      end
+
+      # Рекурсивный поиск первой группы по имени
+      def find_group_by_name(entities, name)
+        entities.each do |e|
+          return e if e.is_a?(Sketchup::Group) && e.name == name
+        end
+        entities.each do |e|
+          next unless e.is_a?(Sketchup::Group)
+          found = find_group_by_name(e.entities, name)
+          return found if found
+        end
+        nil
+      end
+
+      # Рекурсивный поиск всех групп с данным именем
+      def find_all_groups_by_name(entities, name)
+        out = []
+        entities.each do |e|
+          out << e if e.is_a?(Sketchup::Group) && e.name == name
+        end
+        entities.each do |e|
+          next unless e.is_a?(Sketchup::Group)
+          out.concat(find_all_groups_by_name(e.entities, name))
+        end
+        out
+      end
+
+      # Группы из entities, чьи bounds полностью внутри заданного bbox (ящики/двери шкафа)
+      # exclude — группы не учитывать (сам шкаф и т.п.)
+      def groups_inside_bounds(entities, bounds, exclude: [])
+        tol = 1.0  # дюймы, запас для фасадов
+        bmin = bounds.min
+        bmax = bounds.max
+        out = []
+        entities.each do |e|
+          next unless e.is_a?(Sketchup::Group) && e.valid?
+          next if exclude.include?(e)
+          gmin = e.bounds.min
+          gmax = e.bounds.max
+          next unless gmin.x >= bmin.x - tol && gmax.x <= bmax.x + tol &&
+                      gmin.y >= bmin.y - tol && gmax.y <= bmax.y + tol &&
+                      gmin.z >= bmin.z - tol && gmax.z <= bmax.z + tol
+          out << e
+        end
+        out
+      end
+
       # Применить опору по умолчанию к шкафу
       def apply_default_support(cab)
         case @lower_support_type

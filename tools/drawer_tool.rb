@@ -18,6 +18,25 @@ module SketchupFurniture
       def self.clear
         @@registry.clear
       end
+
+      # Удалить записи для невалидных (удалённых) сущностей
+      def self.unregister_invalid
+        @@registry.delete_if do |_id, openable|
+          openable.respond_to?(:group) && openable.group && !openable.group.valid?
+        end
+      end
+
+      # Снять регистрацию группы и всех вложенных групп (перед удалением)
+      def self.unregister_group_and_children(group)
+        return unless group&.valid?
+        group.entities.each do |e|
+          if e.is_a?(Sketchup::Group)
+            @@registry.delete(e.entityID) if e.respond_to?(:entityID)
+            unregister_group_and_children(e)
+          end
+        end
+        @@registry.delete(group.entityID) if group.respond_to?(:entityID)
+      end
       
       # Количество зарегистрированных элементов
       def self.count

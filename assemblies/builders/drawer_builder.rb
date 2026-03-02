@@ -131,6 +131,8 @@ module SketchupFurniture
         def resolve_drawer_positions
           positions = @drawers_positions
           opts = @drawers_options
+          # positions полностью определяют конфиг — заменяем, не дополняем (важно для rebuild)
+          @drawers_config.clear
 
           side_height = @height - @support.side_height_reduction
           top_of_bottom = @support.bottom_z + @thickness

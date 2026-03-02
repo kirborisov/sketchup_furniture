@@ -166,6 +166,14 @@ module SketchupFurniture
       end
       
       # === ПОСТРОЕНИЕ ===
+
+      # Очистить артефакты построения перед пересборкой (для rebuild_cabinet)
+      def clear_build_artifacts
+        @drawer_objects = []
+        @door_objects = []
+        @cut_items = []
+        @hardware_items = []
+      end
       
       def build_geometry
         t = @thickness.mm
