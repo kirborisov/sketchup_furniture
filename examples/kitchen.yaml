@@ -1,0 +1,79 @@
+# Кухня — параметры проекта (YAML)
+# Редактируй этот файл и нажми «Мебель → Обновить из YAML» в SketchUp
+
+name: Кухня
+
+config:
+  drawer_row_overlay: true
+
+lower:
+  depth: 560
+  height: 850
+  support: legs
+  support_height: 0
+  cabinets:
+    - width: 700
+      name: "Шкаф 5, ящики"
+      depth: 700
+      stretchers: true
+      drawers: [0, 400, 567]
+      drawers_type: frame
+
+    - width: 800
+      name: "Шкаф 4"
+      stretchers: true
+      shelves: [250]
+      blind_panel:
+        side: left
+        width: 400
+      doors: 1
+      doors_type: frame
+
+    - width: 1100
+      name: "Шкаф 3 (под окном)"
+      height: 480
+      drawer_row:
+        count: 2
+        type: frame
+
+    - width: 500
+      name: "Шкаф №2 Комбинированный"
+      stretchers: true
+      drawers: 1
+      drawers_height: 250
+      drawers_type: frame
+      separator_shelf: true
+      doors: 1
+      doors_type: frame
+      doors_over_drawers: true
+
+    - width: 1400
+      name: "Шкаф 1 с мойкой"
+      stretchers: true
+      shelves: [250, 500]
+      blind_panel:
+        side: left
+        width: 550
+      doors: 2
+      doors_type: frame
+
+upper:
+  depth: 300
+  height: 600
+  at: 1400
+  cabinets:
+    - width: 500
+      name: "Сушка"
+      shelves: [150, 300]
+      doors: 1
+      doors_type: frame
+
+    - width: 500
+      name: "Специи"
+      shelves: [150, 300]
+      doors: 1
+      doors_type: frame
+
+# countertop:
+#   thickness: 38
+#   overhang: 30

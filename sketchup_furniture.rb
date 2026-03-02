@@ -13,6 +13,13 @@
 #     end
 #   end.build
 
+# При повторной загрузке — только переинициализация
+if defined?(SketchupFurniture::VERSION)
+  SketchupFurniture.reset_config
+  SketchupFurniture::UI::Menu.setup
+  puts "Мебельный конструктор перезагружен"
+else
+
 SKETCHUP_FURNITURE_PATH = File.dirname(__FILE__)
 
 # === МОДУЛЬ ===
@@ -99,6 +106,10 @@ load File.join(SKETCHUP_FURNITURE_PATH, 'utils', 'dimensions.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'wardrobe.rb')
 load File.join(SKETCHUP_FURNITURE_PATH, 'presets', 'kitchen.rb')
 
+# 15. Загрузчик YAML и меню
+load File.join(SKETCHUP_FURNITURE_PATH, 'loaders', 'kitchen_yaml.rb')
+load File.join(SKETCHUP_FURNITURE_PATH, 'ui', 'menu.rb')
+SketchupFurniture::UI::Menu.setup
 
 # При повторной загрузке — пересоздать конфиг с новыми параметрами
 SketchupFurniture.reset_config
@@ -149,6 +160,10 @@ puts <<-HELP
 ║    .hide_dimensions     - скрыть размеры                       ║
 ║    .activate_drawer_tool - двойной клик по ящику/двери         ║
 ║    .rebuild_cabinet(name) - пересобрать один шкаф по имени     ║
+╠════════════════════════════════════════════════════════════════╣
+║  YAML: редактируй examples/kitchen.yaml и нажми               ║
+║    Plugins → Мебель: Обновить из YAML                          ║
 ╚════════════════════════════════════════════════════════════════╝
 
 HELP
+end
